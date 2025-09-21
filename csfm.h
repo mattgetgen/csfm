@@ -4,12 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-typedef struct {
-    size_t length;
-    const char *buffer;
-} String8Slice;
-
-typedef enum {
+typedef enum CSFM_TokenType {
     CSFM_EOF,
     CSFM_WHITESPACE,
     CSFM_CARRIAGE_RETURN,
@@ -27,21 +22,35 @@ typedef enum {
     CSFM_DOUBLE_QUOTE,
     CSFM_NUMBER,
     CSFM_CHARACTER,
-} CSFMTokenType;
+} CSFM_TokenType;
 
-typedef struct {
+typedef struct CSFM_Token {
     size_t start;
     size_t end;
-    CSFMTokenType type;
-} CSFMToken;
+    CSFM_TokenType type;
+} CSFM_Token;
 
-static CSFMTokenType getTokenType(const char byte); 
-static CSFMToken getToken(String8Slice str, size_t *idx);
-void CSFMTokenize(const char *buf, size_t size);
+typedef struct CSFM_String8Slice {
+    size_t length;
+    const char *buffer;
+} CSFM_String8Slice;
+
+static const char GetValueAtIdx(CSFM_String8Slice slice, size_t idx);
+
+static CSFM_TokenType getTokenType(const char byte); 
+static CSFM_Token getToken(CSFM_String8Slice str, size_t *idx);
+void CSFM_Tokenize(const char *buf, size_t size);
+
+static const char GetValueAtIdx(CSFM_String8Slice slice, size_t idx) {
+    if (idx >= slice.length) {
+        exit(1);
+    }
+    return slice.buffer[idx];
+}
 
 
-static CSFMTokenType getTokenType(const char byte) {
-    CSFMTokenType type = EOF;
+static CSFM_TokenType getTokenType(const char byte) {
+    CSFM_TokenType type = EOF;
     switch (byte) {
     case 0:
         type = CSFM_EOF;
@@ -110,14 +119,14 @@ static CSFMTokenType getTokenType(const char byte) {
     return type;
 }
 
-static void processWhitespace(String8Slice str, size_t *idx) {
+static void processWhitespace(CSFM_String8Slice str, size_t *idx) {
     size_t i = *idx;
     char breakWhile = 0;
 
     assert(i < str.length);
 
     while (i < str.length && !breakWhile) {
-        switch (str.buffer[i]) {
+        switch (GetValueAtIdx(str, i)) {
         case ' ':
         case '\t':
             i++;
@@ -130,14 +139,14 @@ static void processWhitespace(String8Slice str, size_t *idx) {
     return;
 }
 
-static void processNumber(String8Slice str, size_t *idx) {
+static void processNumber(CSFM_String8Slice str, size_t *idx) {
     size_t i = *idx;
     char breakWhile = 0;
 
     assert(i < str.length);
 
     while (i < str.length && !breakWhile) {
-        switch (str.buffer[i]) {
+        switch (GetValueAtIdx(str, i)) {
         case '0':
         case '1':
         case '2':
@@ -158,14 +167,14 @@ static void processNumber(String8Slice str, size_t *idx) {
     return;
 }
 
-static void processCharacter(String8Slice str, size_t *idx) {
+static void processCharacter(CSFM_String8Slice str, size_t *idx) {
     size_t i = *idx;
     char breakWhile = 0;
 
     assert(i < str.length);
 
     while (i < str.length && !breakWhile) {
-        switch (str.buffer[i]) {
+        switch (GetValueAtIdx(str, i)) {
         case 0:
         case ' ':
         case '\t':
@@ -202,11 +211,11 @@ static void processCharacter(String8Slice str, size_t *idx) {
     return;
 }
 
-static CSFMToken getToken(String8Slice str, size_t *idx) {
+static CSFM_Token getToken(CSFM_String8Slice str, size_t *idx) {
     size_t i = *idx;
-    CSFMToken token;
+    CSFM_Token token;
     token.start = i;
-    token.type = getTokenType(str.buffer[i]);
+    token.type = getTokenType(GetValueAtIdx(str, i));
 
     i++;
     assert(i < str.length);
@@ -218,7 +227,7 @@ static CSFMToken getToken(String8Slice str, size_t *idx) {
         processWhitespace(str, &i);
         break;
     case CSFM_CARRIAGE_RETURN:
-        if (str.buffer[i] == '\n') {
+        if (GetValueAtIdx(str, i) == '\n') {
             i++;
             token.type = CSFM_NEWLINE;
         }
@@ -256,8 +265,8 @@ static CSFMToken getToken(String8Slice str, size_t *idx) {
 }
 
 
-void CSFMTokenize(const char *buf, size_t size) {
-    String8Slice str = {
+void CSFM_Tokenize(const char *buf, size_t size) {
+    CSFM_String8Slice str = {
         size,
         buf
     };

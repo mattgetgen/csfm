@@ -10,7 +10,7 @@
 #include "csfm.h"
 
 int main(void) {
-    const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";
+    const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";
     struct timespec start_time, end_time;
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
@@ -45,7 +45,7 @@ int main(void) {
         return 1;
     }
 
-    CSFMTokenize((const char *)filebuf, size);
+    CSFM_Tokenize((const char *)filebuf, size);
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
