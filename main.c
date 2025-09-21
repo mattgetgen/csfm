@@ -57,14 +57,15 @@ int main(void) {
     );
     double diffInMillisecondsFloat = (double)diffInNanoseconds / (double)1e6;
     double diffInSecondsFloat = (double)diffInNanoseconds / (double)1e9;
-    printf("took: %f ms\n", diffInMillisecondsFloat);
-    printf("took: %f s\n", diffInSecondsFloat);
 
+    long bytesPerMilli = (long)((double)size / diffInMillisecondsFloat);
     long bytesPerSec = (long)((double)size / diffInSecondsFloat);
     
-    /* long bytesPerMs = (long)size / diffInMilliseconds; */
+    printf("size: %ld\n", size);
+    printf("took: %f ms\n", diffInMillisecondsFloat);
+    printf("took: %f s\n", diffInSecondsFloat);
+    printf("bytes/ms: %ld\n", bytesPerMilli);
     printf("bytes/s: %ld\n", bytesPerSec);
-
 
     free(filebuf);
 

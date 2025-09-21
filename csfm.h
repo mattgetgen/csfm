@@ -244,6 +244,8 @@ static CSFMToken getToken(String8Slice str, size_t *idx) {
         /* call character func */
         processCharacter(str, &i);
         break;
+    default:
+        exit(1);
     }
     token.end = i;
     assert(i <= str.length);
@@ -262,6 +264,64 @@ void CSFMTokenize(const char *buf, size_t size) {
     size_t i = 0;
     while (i < str.length) {
         getToken(str, &i);
+        /*CSFMToken token = getToken(str, &i);*/
+        /*
+        switch (token.type) {
+        case CSFM_EOF:
+            printf("EOF\n");
+            break;
+        case CSFM_WHITESPACE:
+            printf(" ");
+            break;
+        case CSFM_CARRIAGE_RETURN:
+            printf("CR");
+            break;
+        case CSFM_NEWLINE:
+            printf("\n");
+            break;
+        case CSFM_FORWARDSLASH:
+            printf("/");
+            break;
+        case CSFM_BACKSLASH:
+            printf("\\");
+            break;
+        case CSFM_PIPE:
+            printf("|");
+            break;
+        case CSFM_COLON:
+            printf(":");
+            break;
+        case CSFM_SEMICOLON:
+            printf(";");
+            break;
+        case CSFM_TILDE:
+            printf("~");
+            break;
+        case CSFM_ASTERISK:
+            printf("*");
+            break;
+        case CSFM_PLUS:
+            printf("+");
+            break;
+        case CSFM_MINUS:
+            printf("-");
+            break;
+        case CSFM_EQUAL:
+            printf("=");
+            break;
+        case CSFM_DOUBLE_QUOTE:
+            printf("\"");
+            break;
+        case CSFM_NUMBER:
+            printf("0");
+            break;
+        case CSFM_CHARACTER:
+            printf("A");
+            break;
+        default:
+            exit(1);
+        }
+        */
     }
     return;
 }
