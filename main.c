@@ -7,10 +7,15 @@
 #include <stdlib.h>
 #include <time.h>
 
+/**/
+#define GET_TOKEN_2
+/**/
 #include "csfm.h"
 
+
 int main(void) {
-    const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";
+    /*const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";*/
+    const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";
     struct timespec start_time, end_time;
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
@@ -18,7 +23,8 @@ int main(void) {
         return 1;
     }
 
-    /* TODO(matt): test if we can get consistent performance from O_DIRECT
+    /*
+     * TODO(matt): test if we can get consistent performance from O_DIRECT
      * (minimizes OS caching, check man 2 open)
      */
     int fd = open(path, O_RDONLY);
@@ -45,7 +51,7 @@ int main(void) {
         return 1;
     }
 
-    CSFM_Tokenize((const char *)filebuf, size);
+    CSFM_Tokenize((char *)filebuf, size);
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
@@ -60,12 +66,24 @@ int main(void) {
 
     long bytesPerMilli = (long)((double)size / diffInMillisecondsFloat);
     long bytesPerSec = (long)((double)size / diffInSecondsFloat);
+
+    double sizeInKiB = (double)size / 1024;
+    double sizeInMiB = sizeInKiB / 1024;
+    double sizeInGiB = sizeInMiB / 1024;
+    double kibPerSec = sizeInKiB / diffInSecondsFloat;
+    double mibPerSec = sizeInMiB / diffInSecondsFloat;
+    double gibPerSec = sizeInGiB / diffInSecondsFloat;
+    
     
     printf("size: %ld\n", size);
     printf("took: %f ms\n", diffInMillisecondsFloat);
     printf("took: %f s\n", diffInSecondsFloat);
     printf("bytes/ms: %ld\n", bytesPerMilli);
     printf("bytes/s: %ld\n", bytesPerSec);
+    printf("\n");
+    printf("kibibytes/s: %f\n", kibPerSec);
+    printf("mebibytes/s: %f\n", mibPerSec);
+    printf("gibibytes/s: %f\n", gibPerSec);
 
     free(filebuf);
 
