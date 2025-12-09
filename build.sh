@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-gcc -std=c89 -Wall -Werror -Wextra -O3 -o csfm main.c
+gcc -std=c89 -Wall -Wextra -fsanitize=address -o csfm main.c

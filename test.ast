@@ -1,0 +1,15 @@
+ROOT
+|-MARKER "id"
+| |-TEXT "GEN test.usfm, Test File"
+|-MARKER "usfm"
+| |-TEXT "3.0"
+|-MARKER "ide"
+| |-TEXT "UTF-8"
+|-MARKER "h"
+| |-TEXT "The First Book of Moses"
+|-MARKER "c"
+| |-TEXT "1"
+|-MARKER "p"
+|-MARKER "v"
+  |-TEXT "1 In the beginning..."
+
