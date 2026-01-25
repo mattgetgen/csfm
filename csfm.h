@@ -58,19 +58,16 @@
 #include <stdlib.h>
 
 typedef struct CSFM_String8Slice CSFM_String8Slice;
-typedef enum CSFM_TokenType CSFM_TokenType;
 typedef struct CSFM_Token CSFM_Token;
 typedef struct CSFM_TokenArray CSFM_TokenArray;
-typedef enum CSFM_MarkerType CSFM_MarkerType;
-typedef enum CSFM_NodeType CSFM_NodeType;
 typedef struct CSFM_Node CSFM_Node;
 
 struct CSFM_String8Slice {
-    size_t length;
     char *buffer;
+    size_t length;
 };
 
-enum CSFM_TokenType {
+typedef enum {
     CSFM_TOKEN_EOF,
     CSFM_TOKEN_WHITESPACE,
     CSFM_TOKEN_CARRIAGE_RETURN,
@@ -87,8 +84,8 @@ enum CSFM_TokenType {
     CSFM_TOKEN_EQUAL,
     CSFM_TOKEN_DOUBLE_QUOTE,
     CSFM_TOKEN_NUMBER,
-    CSFM_TOKEN_TEXT,
-};
+    CSFM_TOKEN_TEXT
+} CSFM_TokenType;
 
 struct CSFM_Token {
     size_t start;
@@ -97,18 +94,18 @@ struct CSFM_Token {
 };
 
 struct CSFM_TokenArray {
+    CSFM_Token *buffer;
     size_t length;
     size_t capacity;
-    CSFM_Token *buffer;
 };
 
-enum CSFM_NodeType {
+typedef enum {
     CSFM_NODE_UNKNOWN,
     CSFM_NODE_ROOT,
     CSFM_NODE_INVALID,
     CSFM_NODE_MARKER,
-    CSFM_NODE_TEXT,
-};
+    CSFM_NODE_TEXT
+} CSFM_NodeType;
 
 struct CSFM_Node {
     CSFM_Node *next;
@@ -117,11 +114,12 @@ struct CSFM_Node {
     size_t start;
     size_t end;
     size_t row;
-    size_t column;
+    size_t col;
 };
 
+static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *buffer, size_t length);
 static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx);
-static CSFM_TokenArray CSFM_TokenArray_allocate(size_t size);
+static int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity);
 static int pushToken(CSFM_TokenArray *array, CSFM_Token token);
 static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array);
 CSFM_TokenArray CSFM_Tokenize(char *buf, size_t size);
@@ -332,30 +330,41 @@ static CSFM_Token processToken(CSFM_String8Slice str, size_t idx) {
     return token;
 }
 
+static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *buffer, size_t length) {
+    if (slice == NULL) {
+        return;
+    }
+    slice->buffer = buffer;
+    slice->length = length;
+}
+
 static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx) {
     if (idx >= slice.length) {
         /*
-         * NOTE(matt): This should be at the end of the slice
+         * NOTE(mattg): This should be at the end of the slice
          * anyway, so an EOF isn't that odd to return.
          */
-        return 0;
+        return '\0';
     }
     return slice.buffer[idx];
 }
 
-static CSFM_TokenArray CSFM_TokenArray_allocate(size_t size) {
-    CSFM_TokenArray array = {0};
-    /* TODO(matt): size this to be the normal distribution of tokens/byte */
-    array.capacity = size;
-    array.length = 0;
-    array.buffer = malloc(sizeof(CSFM_Token) * array.capacity);
-    if (array.buffer == NULL) {
-        array.capacity = 0;
-        return array;
+static int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity) {
+    if (array == NULL) {
+        return -1;
     }
-    /* TODO(matt): look into what secure memset is, use it if I should */
-    memset(array.buffer, 0, array.capacity);
-    return array;
+    size_t size = sizeof(CSFM_Token) * capacity;
+    array->buffer = malloc(size);
+    if (array->buffer == NULL) {
+        array->capacity = 0;
+        array->length = 0;
+        return -1;
+    }
+    /* TODO(mattg): look into what secure memset is, use it if I should */
+    memset(array->buffer, 0, size);
+    array->capacity = capacity;
+    array->length = 0;
+    return 0;
 }
 
 static CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index) {
@@ -386,11 +395,13 @@ static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array) {
 }
 
 CSFM_TokenArray CSFM_Tokenize(char *buf, size_t size) {
-    CSFM_String8Slice str = {
-        size,
-        buf
-    };
-    CSFM_TokenArray array = CSFM_TokenArray_allocate(size);
+    CSFM_String8Slice str = {0};
+    CSFM_String8Slice_new(&str, buf, size);
+
+    CSFM_TokenArray array = {0};
+    if (CSFM_TokenArray_allocate(&array, size) != 0) {
+        return array;
+    }
 
     tokenizeInternal(str, &array);
 
@@ -574,11 +585,12 @@ static int printNode(CSFM_Node *node, int indent) {
 }
 
 void CSFM_Parse(char *buf, size_t size) {
-    CSFM_String8Slice str = {
-        size,
-        buf,
-    };
-    CSFM_TokenArray array = CSFM_TokenArray_allocate(size);
+    CSFM_String8Slice str = {0};
+    CSFM_String8Slice_new(&str, buf, size);
+    CSFM_TokenArray array = {0};
+    if (CSFM_TokenArray_allocate(&array, size) != 0) {
+        return;
+    }
 
     tokenizeInternal(str, &array);
 
