@@ -116,6 +116,7 @@ struct CSFM_Node {
     CSFM_Node *next;
     CSFM_Node *child;
     CSFM_NodeType type;
+    CSFM_String8Slice marker_text;
     size_t start;
     size_t end;
     size_t row;
@@ -656,6 +657,7 @@ void CSFM_Parse(char *buf, size_t size) {
             break;
         }
     }
+    free(root);
     CSFM_TokenArray_deallocate(&array);
 
     return;
