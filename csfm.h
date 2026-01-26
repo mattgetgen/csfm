@@ -48,24 +48,18 @@
 #define CSFM_VERSION_PATCH 0
 #define CSFM_VERSION "0.0.0-dev"
 
-#ifndef csfm_u8
-#define csfm_u8 unsigned char
-#endif
-
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-typedef struct CSFM_String8Slice CSFM_String8Slice;
-typedef struct CSFM_Token CSFM_Token;
-typedef struct CSFM_TokenArray CSFM_TokenArray;
-typedef struct CSFM_Node CSFM_Node;
-
-struct CSFM_String8Slice {
-    char *buffer;
+typedef struct {
+    char *ptr;
     size_t length;
-};
+} CSFM_String8Slice;
+
+static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *ptr, size_t length);
+static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx);
 
 typedef enum {
     CSFM_TOKEN_EOF,
@@ -87,17 +81,26 @@ typedef enum {
     CSFM_TOKEN_TEXT
 } CSFM_TokenType;
 
-struct CSFM_Token {
+typedef struct {
     size_t start;
     size_t end;
+    size_t row;
+    size_t col;
     CSFM_TokenType type;
-};
+} CSFM_Token;
 
-struct CSFM_TokenArray {
+typedef struct {
     CSFM_Token *buffer;
     size_t length;
     size_t capacity;
-};
+} CSFM_TokenArray;
+
+int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity);
+void CSFM_TokenArray_deallocate(CSFM_TokenArray *array);
+void CSFM_TokenArray_reuse(CSFM_TokenArray *array);
+static int CSFM_TokenArray_resize(CSFM_TokenArray *array, size_t newCapacity);
+static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token);
+CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index);
 
 typedef enum {
     CSFM_NODE_UNKNOWN,
@@ -106,6 +109,8 @@ typedef enum {
     CSFM_NODE_MARKER,
     CSFM_NODE_TEXT
 } CSFM_NodeType;
+
+typedef struct CSFM_Node CSFM_Node;
 
 struct CSFM_Node {
     CSFM_Node *next;
@@ -117,10 +122,6 @@ struct CSFM_Node {
     size_t col;
 };
 
-static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *buffer, size_t length);
-static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx);
-static int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity);
-static int pushToken(CSFM_TokenArray *array, CSFM_Token token);
 static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array);
 CSFM_TokenArray CSFM_Tokenize(char *buf, size_t size);
 void CSFM_Parse(char *buf, size_t size);
@@ -330,11 +331,11 @@ static CSFM_Token processToken(CSFM_String8Slice str, size_t idx) {
     return token;
 }
 
-static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *buffer, size_t length) {
+static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *ptr, size_t length) {
     if (slice == NULL) {
         return;
     }
-    slice->buffer = buffer;
+    slice->ptr = ptr;
     slice->length = length;
 }
 
@@ -346,10 +347,10 @@ static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx) {
          */
         return '\0';
     }
-    return slice.buffer[idx];
+    return slice.ptr[idx];
 }
 
-static int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity) {
+int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity) {
     if (array == NULL) {
         return -1;
     }
@@ -367,21 +368,68 @@ static int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity) {
     return 0;
 }
 
-static CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index) {
-    if (index < array.length) {
-        return &array.buffer[index];
+void CSFM_TokenArray_deallocate(CSFM_TokenArray *array) {
+    if (array == NULL) {
+        return;
     }
-    return NULL;
+    if (array->buffer != NULL) {
+        free(array->buffer);
+        array->buffer = NULL;
+    }
+    array->length = 0;
+    array->capacity = 0;
 }
 
-static int pushToken(CSFM_TokenArray *array, CSFM_Token token) {
+void CSFM_TokenArray_reuse(CSFM_TokenArray *array) {
+    if (array == NULL) {
+        return;
+    }
+    if (array->buffer != NULL) {
+        size_t size = sizeof(CSFM_Token) * array->capacity;
+        memset(array->buffer, 0, size);
+    }
+    array->length = 0;
+}
+
+static int CSFM_TokenArray_resize(CSFM_TokenArray *array, size_t newCapacity) {
+    if (array == NULL || newCapacity < array->length) {
+        return -1;
+    }
+    size_t newSize = sizeof(CSFM_Token) * newCapacity;
+    CSFM_Token *newBuffer = malloc(newSize);
+    if (newBuffer == NULL) {
+        return -1;
+    }
+    memset(newBuffer, 0, newSize);
+    if (array->buffer != NULL) {
+        memcpy(newBuffer, array->buffer, sizeof(CSFM_Token) * array->length);
+        free(array->buffer);
+    }
+    array->buffer = newBuffer;
+    array->capacity = newCapacity;
+    return 0;
+}
+
+static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token) {
+    if (array == NULL) {
+        return -1;
+    }
     if (array->length >= array->capacity) {
-        return 0;
+        if (CSFM_TokenArray_resize(array, array->capacity * 2) != 0) {
+            return -1;
+        }
     }
 
     array->buffer[array->length] = token;
     array->length++;
-    return 1;
+    return 0;
+}
+
+CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index) {
+    if (index < array.length) {
+        return &array.buffer[index];
+    }
+    return NULL;
 }
 
 static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array) {
@@ -389,7 +437,7 @@ static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array) {
     while (i < str.length) {
         CSFM_Token token = processToken(str, i);
         i = token.end;
-        pushToken(array, token);
+        CSFM_TokenArray_push(array, token);
     }
     return;
 }
@@ -608,9 +656,9 @@ void CSFM_Parse(char *buf, size_t size) {
             break;
         }
     }
-    free(array.buffer);
+    CSFM_TokenArray_deallocate(&array);
 
     return;
 }
 
-#endif
+#endif /* CSFM */

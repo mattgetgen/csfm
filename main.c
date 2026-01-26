@@ -148,7 +148,7 @@ int main(void) {
     printf("GiB/s: %f\n", gibPerSec);
     */
 
-    free(array.buffer);
+    CSFM_TokenArray_deallocate(&array);
     free(filebuf);
 
     if (close(fd) == -1) {
