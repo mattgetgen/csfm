@@ -50,7 +50,7 @@ int main(void) {
         return 1;
     }
 
-    CSFM_TokenArray array = CSFM_Tokenize((char *)filebuf, size);
+    CSFM_Tokenizer tokenizer = CSFM_Tokenize((char *)filebuf, size);
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
@@ -58,8 +58,8 @@ int main(void) {
     }
     /**/
     size_t i = 0;
-    for (i = 0; i < array.length; i++) {
-        CSFM_Token token = array.buffer[i];
+    for (i = 0; i < tokenizer.array.length; i++) {
+        CSFM_Token token = tokenizer.array.buffer[i];
         switch (token.type) {
         case CSFM_TOKEN_EOF:
             printf("EOF\n");
@@ -81,6 +81,9 @@ int main(void) {
             break;
         case CSFM_TOKEN_PIPE:
             printf("|");
+            break;
+        case CSFM_TOKEN_PERIOD:
+            printf(".");
             break;
         case CSFM_TOKEN_COLON:
             printf(":");
@@ -118,7 +121,7 @@ int main(void) {
     }
     /**/
 
-    CSFM_Parse((char *)filebuf, size);
+    /*CSFM_Parse((char *)filebuf, size);*/
 
     /*
     long diffInNanoseconds = (end_time.tv_sec - start_time.tv_sec) * (long)1e9 + (
@@ -148,7 +151,7 @@ int main(void) {
     printf("GiB/s: %f\n", gibPerSec);
     */
 
-    CSFM_TokenArray_deallocate(&array);
+    CSFM_TokenArray_deallocate(&tokenizer.array);
     free(filebuf);
 
     if (close(fd) == -1) {
