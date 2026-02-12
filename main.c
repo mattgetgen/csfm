@@ -13,9 +13,9 @@
 int main(void) {
     /*const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";*/
     /*const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";*/
-    /**/const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";/**/
-    /*const char *path = "./test.usfm";*/
-    struct timespec start_time, end_time;
+    /*const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";*/
+    /**/const char *path = "./test.usfm";/**/
+    /*struct timespec start_time, end_time;*/
 
     /*
      * TODO(matt): test if we can get consistent performance from O_DIRECT
@@ -45,6 +45,7 @@ int main(void) {
         return 1;
     }
 
+    /*
     long start_cycles = __rdtsc();
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
@@ -58,7 +59,6 @@ int main(void) {
         printf("Error: `clock_gettime` failed\n");
         return 1;
     }
-    /*
     size_t i = 0;
     for (i = 0; i < tokenizer.array.length; i++) {
         CSFM_Token token = tokenizer.array.buffer[i];
@@ -124,7 +124,6 @@ int main(void) {
             printf("UNKNOWN");
         }
     }
-    */
     long cycles = end_cycles - start_cycles;
     float cyclesPerByte = (float)cycles / (float)size;
     long nanoseconds = ((end_time.tv_sec - start_time.tv_sec) * (long)1e9) + (
@@ -133,38 +132,13 @@ int main(void) {
     float nanosPerByte = (float)nanoseconds / (float)size;
     printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
     printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
-
-    /*CSFM_Parse((char *)filebuf, size);*/
-
-    /*
-    long diffInNanoseconds = (end_time.tv_sec - start_time.tv_sec) * (long)1e9 + (
-        end_time.tv_nsec - start_time.tv_nsec
-    );
-    double diffInMillisecondsFloat = (double)diffInNanoseconds / (double)1e6;
-    double diffInSecondsFloat = (double)diffInNanoseconds / (double)1e9;
-
-    long bytesPerMilli = (long)((double)size / diffInMillisecondsFloat);
-    long bytesPerSec = (long)((double)size / diffInSecondsFloat);
-
-    double sizeInKiB = (double)size / 1024;
-    double sizeInMiB = sizeInKiB / 1024;
-    double sizeInGiB = sizeInMiB / 1024;
-    double kibPerSec = sizeInKiB / diffInSecondsFloat;
-    double mibPerSec = sizeInMiB / diffInSecondsFloat;
-    double gibPerSec = sizeInGiB / diffInSecondsFloat;
-    
-    printf("size: %ld\n", size);
-    printf("took: %f ms\n", diffInMillisecondsFloat);
-    printf("took: %f s\n", diffInSecondsFloat);
-    printf("B/ms: %ld\n", bytesPerMilli);
-    printf("B/s: %ld\n", bytesPerSec);
-    printf("\n");
-    printf("KiB/s: %f\n", kibPerSec);
-    printf("MiB/s: %f\n", mibPerSec);
-    printf("GiB/s: %f\n", gibPerSec);
     */
 
-    CSFM_TokenArray_deallocate(&tokenizer.array);
+    /*
+    CSFM_Parse((char *)filebuf, size);
+    */
+
+    /*CSFM_TokenArray_deallocate(&tokenizer.array);*/
     free(filebuf);
 
     if (close(fd) == -1) {

@@ -97,13 +97,6 @@ typedef struct {
     size_t capacity;
 } CSFM_TokenArray;
 
-typedef struct {
-    CSFM_TokenArray array;
-    size_t position;
-    size_t row;
-    size_t col;
-} CSFM_Tokenizer;
-
 int CSFM_TokenArray_allocate(CSFM_TokenArray *array, size_t capacity);
 void CSFM_TokenArray_deallocate(CSFM_TokenArray *array);
 void CSFM_TokenArray_reuse(CSFM_TokenArray *array);
@@ -111,237 +104,12 @@ static int CSFM_TokenArray_resize(CSFM_TokenArray *array, size_t newCapacity);
 static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token);
 CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index);
 
-/*
-typedef enum {
-    CSFM_NODE_UNKNOWN,
-    CSFM_NODE_ROOT,
-    CSFM_NODE_INVALID,
-    CSFM_NODE_MARKER,
-    CSFM_NODE_TEXT
-} CSFM_NodeType;
-
-
 typedef struct {
-    CSFM_Node *child;
-    CSFM_NodeType type;
-    CSFM_String8Slice marker_text;
-    size_t start;
-    size_t end;
+    CSFM_TokenArray array;
+    size_t position;
     size_t row;
     size_t col;
-} CSFM_Node;
-*/
-
-/*
-static void tokenizeInternal(CSFM_String8Slice str, CSFM_TokenArray *array);
-CSFM_TokenArray CSFM_Tokenize(char *buf, size_t size);
-void CSFM_Parse(char *buf, size_t size);*/
-
-/*
-static CSFM_TokenType getTokenType(char byte) {
-    CSFM_TokenType type = CSFM_TOKEN_EOF;
-    switch (byte) {
-    case 0:
-        type = CSFM_TOKEN_EOF;
-        break;
-    *//* whitespace *//*
-    case ' ':
-    case '\t':
-        type = CSFM_TOKEN_WHITESPACE;
-        break;
-    case '\r':
-        type = CSFM_TOKEN_CARRIAGE_RETURN;
-        break;
-    case '\n':
-        type = CSFM_TOKEN_NEWLINE;
-        break;
-    *//* usfm-specific characters *//*
-    case '/':
-        type = CSFM_TOKEN_FORWARDSLASH;
-        break;
-    case '\\':
-        type = CSFM_TOKEN_BACKSLASH;
-        break;
-    case '|':
-        type = CSFM_TOKEN_PIPE;
-        break;
-    case ':':
-        type = CSFM_TOKEN_COLON;
-        break;
-    case ';':
-        type = CSFM_TOKEN_SEMICOLON;
-        break;
-    case '~':
-        type = CSFM_TOKEN_TILDE;
-        break;
-    case '*':
-        type = CSFM_TOKEN_ASTERISK;
-        break;
-    case '+':
-        type = CSFM_TOKEN_PLUS;
-        break;
-    case '-':
-        type = CSFM_TOKEN_MINUS;
-        break;
-    case '=':
-        type = CSFM_TOKEN_EQUAL;
-        break;
-    case '"':
-        type = CSFM_TOKEN_DOUBLE_QUOTE;
-        break;
-    *//* numbers and text *//*
-    case '0':
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-    case '9':
-        type = CSFM_TOKEN_NUMBER;
-        break;
-    default:
-        type = CSFM_TOKEN_TEXT;
-    }
-    return type;
-}
-
-static void processWhitespace(CSFM_String8Slice str, size_t *idx) {
-    size_t i = *idx;
-    char breakWhile = 0;
-
-    assert(i < str.length);
-
-    while (i < str.length && !breakWhile) {
-        switch (CSFM_String8Slice_get(str, i)) {
-        case ' ':
-        case '\t':
-            i++;
-            break;
-        default:
-            breakWhile = 1;
-        }
-    }
-    *idx = i;
-    return;
-}
-
-static void processNumber(CSFM_String8Slice str, size_t *idx) {
-    size_t i = *idx;
-    char breakWhile = 0;
-
-    assert(i < str.length);
-
-    while (i < str.length && !breakWhile) {
-        switch (CSFM_String8Slice_get(str, i)) {
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            i++;
-            break;
-        default:
-            breakWhile = 1;
-        }
-    }
-    *idx = i;
-    return;
-}
-
-static void processText(CSFM_String8Slice str, size_t *idx) {
-    size_t i = *idx;
-    char breakWhile = 0;
-
-    assert(i < str.length);
-
-    while (i < str.length && !breakWhile) {
-        switch (CSFM_String8Slice_get(str, i)) {
-        case 0:
-        case ' ':
-        case '\t':
-        case '\r':
-        case '\n':
-        case '/':
-        case '\\':
-        case '|':
-        case ':':
-        case ';':
-        case '~':
-        case '*':
-        case '+':
-        case '-':
-        case '=':
-        case '"':
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            breakWhile = 1;
-            break;
-        default:
-            i++;
-        }
-    }
-    *idx = i;
-    return;
-}
-
-static CSFM_Token processToken(CSFM_String8Slice str, size_t idx) {
-    CSFM_Token token;
-    token.start = idx;
-    token.type = getTokenType(CSFM_String8Slice_get(str, idx));
-
-    idx++;
-    assert(idx <= str.length);
-
-    switch (token.type) {
-    case CSFM_TOKEN_EOF:
-        break;
-    case CSFM_TOKEN_WHITESPACE:
-        processWhitespace(str, &idx);
-        break;
-    case CSFM_TOKEN_CARRIAGE_RETURN:
-    case CSFM_TOKEN_NEWLINE:
-    case CSFM_TOKEN_FORWARDSLASH:
-    case CSFM_TOKEN_BACKSLASH:
-    case CSFM_TOKEN_PIPE:
-    case CSFM_TOKEN_COLON:
-    case CSFM_TOKEN_SEMICOLON:
-    case CSFM_TOKEN_TILDE:
-    case CSFM_TOKEN_ASTERISK:
-    case CSFM_TOKEN_PLUS:
-    case CSFM_TOKEN_MINUS:
-    case CSFM_TOKEN_EQUAL:
-    case CSFM_TOKEN_DOUBLE_QUOTE:
-        break;
-    case CSFM_TOKEN_NUMBER:
-        processNumber(str, &idx);
-        break;
-    case CSFM_TOKEN_TEXT:
-        processText(str, &idx);
-        break;
-    default:
-        exit(1);
-    }
-    token.end = idx;
-    assert(idx <= str.length);
-    
-    return token;
-}*/
+} CSFM_Tokenizer;
 
 static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *ptr, size_t length) {
     if (slice == NULL) {
@@ -611,6 +379,21 @@ CSFM_Tokenizer CSFM_Tokenize(char *buf, size_t size) {
 
     return tokenizer;
 }
+
+typedef enum {
+    CSFM_NODE_MARKER,
+    CSFM_NODE_TEXT
+} CSFM_NodeType;
+
+typedef struct CSFM_Node CSFM_Node;
+struct CSFM_Node {
+    CSFM_Node **children; /* TODO(mattg): make a CSFM_NodeArray */
+    size_t start;
+    size_t end;
+    size_t row;
+    size_t col;
+    CSFM_NodeType type;
+};
 
 /*
 static CSFM_Node* allocateNode() {
