@@ -6,21 +6,16 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <time.h>
+#include <x86intrin.h>
 
 #include "csfm.h"
-
 
 int main(void) {
     /*const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";*/
     /*const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";*/
-    /*const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";*/
-    /**/const char *path = "./test.usfm";/**/
+    /**/const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";/**/
+    /*const char *path = "./test.usfm";*/
     struct timespec start_time, end_time;
-
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
-        printf("Error: `clock_gettime` failed\n");
-        return 1;
-    }
 
     /*
      * TODO(matt): test if we can get consistent performance from O_DIRECT
@@ -50,13 +45,20 @@ int main(void) {
         return 1;
     }
 
+    long start_cycles = __rdtsc();
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
+        printf("Error: `clock_gettime` failed\n");
+        return 1;
+    }
+
     CSFM_Tokenizer tokenizer = CSFM_Tokenize((char *)filebuf, size);
+    long end_cycles = __rdtsc();
 
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
         return 1;
     }
-    /**/
+    /*
     size_t i = 0;
     for (i = 0; i < tokenizer.array.length; i++) {
         CSFM_Token token = tokenizer.array.buffer[i];
@@ -75,6 +77,9 @@ int main(void) {
             break;
         case CSFM_TOKEN_FORWARDSLASH:
             printf("/");
+            break;
+        case CSFM_TOKEN_DOUBLE_FORWARDSLASH:
+            printf("//");
             break;
         case CSFM_TOKEN_BACKSLASH:
             printf("\\");
@@ -119,7 +124,15 @@ int main(void) {
             printf("UNKNOWN");
         }
     }
-    /**/
+    */
+    long cycles = end_cycles - start_cycles;
+    float cyclesPerByte = (float)cycles / (float)size;
+    long nanoseconds = ((end_time.tv_sec - start_time.tv_sec) * (long)1e9) + (
+        end_time.tv_nsec - start_time.tv_nsec
+    );
+    float nanosPerByte = (float)nanoseconds / (float)size;
+    printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
+    printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
 
     /*CSFM_Parse((char *)filebuf, size);*/
 
