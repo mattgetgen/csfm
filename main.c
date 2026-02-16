@@ -13,14 +13,19 @@
 int main(void) {
     /*const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";*/
     /*const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";*/
-    /*const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";*/
-    /**/const char *path = "./test.usfm";/**/
-    /*struct timespec start_time, end_time;*/
+    /**/const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";/**/
+    /*const char *path = "./test.usfm";*/
 
     /*
      * TODO(matt): test if we can get consistent performance from O_DIRECT
      * (minimizes OS caching, check man 2 open)
      */
+    long start_cycles = __rdtsc();
+    struct timespec start_time = {0};
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
+        printf("Error: `clock_gettime` failed\n");
+        return 1;
+    }
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
         printf("Error: `open` failed\n");
@@ -44,6 +49,21 @@ int main(void) {
         printf("Error: `read` failed\n");
         return 1;
     }
+    long end_cycles = __rdtsc();
+    struct timespec end_time = {0};
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
+        printf("Error: `clock_gettime` failed\n");
+        return 1;
+    }
+
+    long cycles = end_cycles - start_cycles;
+    float cyclesPerByte = (float)cycles / (float)size;
+    long nanoseconds = ((end_time.tv_sec - start_time.tv_sec) * (long)1e9) + (
+        end_time.tv_nsec - start_time.tv_nsec
+    );
+    float nanosPerByte = (float)nanoseconds / (float)size;
+    printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
+    printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
 
     /*
     long start_cycles = __rdtsc();
@@ -53,8 +73,8 @@ int main(void) {
     }
 
     CSFM_Tokenizer tokenizer = CSFM_Tokenize((char *)filebuf, size);
-    long end_cycles = __rdtsc();
 
+    long end_cycles = __rdtsc();
     if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
         printf("Error: `clock_gettime` failed\n");
         return 1;
@@ -134,9 +154,7 @@ int main(void) {
     printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
     */
 
-    /*
-    CSFM_Parse((char *)filebuf, size);
-    */
+    /*CSFM_Parse((char *)filebuf, size);*/
 
     /*CSFM_TokenArray_deallocate(&tokenizer.array);*/
     free(filebuf);

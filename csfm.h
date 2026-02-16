@@ -385,15 +385,115 @@ typedef enum {
     CSFM_NODE_TEXT
 } CSFM_NodeType;
 
-typedef struct CSFM_Node CSFM_Node;
-struct CSFM_Node {
-    CSFM_Node **children; /* TODO(mattg): make a CSFM_NodeArray */
+typedef struct CSFM_NodeArray CSFM_NodeArray;
+
+/*
+typedef struct {
+    CSFM_NodeArray children;
     size_t start;
     size_t end;
     size_t row;
     size_t col;
     CSFM_NodeType type;
+} CSFM_Node;
+
+struct CSFM_NodeArray {
+    CSFM_Node *buffer;
+    size_t length;
+    size_t capacity;
 };
+
+int CSFM_NodeArray_allocate(CSFM_NodeArray *array, size_t capacity);
+void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
+void CSFM_NodeArray_reuse(CSFM_NodeArray *array);
+static int CSFM_NodeArray_resize(CSFM_NodeArray *array, size_t newCapacity);
+static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
+CSFM_Node* CSFM_NodeArray_get(CSFM_NodeArray array, size_t index);
+
+int CSFM_NodeArray_allocate(CSFM_NodeArray *array, size_t capacity) {
+    if (array == NULL) {
+        return -1;
+    }
+    size_t size = sizeof(CSFM_Node) * capacity;
+    array->buffer = malloc(size);
+    if (array->buffer == NULL) {
+        array->capacity = 0;
+        array->length = 0;
+        return -1;
+    }
+    memset(array->buffer, 0, size);
+    array->capacity = capacity;
+    array->length = 0;
+    return 0;
+}
+
+void CSFM_NodeArray_deallocate(CSFM_NodeArray *array) {
+    if (array == NULL) {
+        return;
+    }
+    if (array->buffer != NULL) {
+        free(array->buffer);
+        array->buffer = NULL;
+    }
+    array->capacity = 0;
+    array->length = 0;
+}
+
+void CSFM_NodeArray_reuse(CSFM_NodeArray *array) {
+    if (array == NULL) {
+        return;
+    }
+    if (array->buffer != NULL) {
+        size_t size = sizeof(CSFM_Node) * array->capacity;
+        memset(array->buffer, 0, size);
+    }
+    array->length = 0;
+}
+
+static int CSFM_NodeArray_resize(CSFM_NodeArray *array, size_t newCapacity) {
+    if (array == NULL || newCapacity < array->capacity) {
+        return -1;
+    }
+    size_t newSize = sizeof(CSFM_Node) * newCapacity;
+    CSFM_Node *newBuffer = malloc(newSize);
+    if (newBuffer == NULL) {
+        return -1;
+    }
+    memset(newBuffer, 0, newSize);
+    if (array->buffer != NULL) {
+        memcpy(newBuffer, array->buffer, sizeof(CSFM_Node) * array->length);
+        free(array->buffer);
+    }
+    array->buffer = newBuffer;
+    array->capacity = newCapacity;
+    return 0;
+}
+
+static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node) {
+    if (array == NULL) {
+        return -1;
+    }
+    if (array->length >= array->capacity) {
+        if (CSFM_NodeArray_resize(array, array->capacity * 2) != 0) {
+            return -1;
+        }
+    }
+
+    array->buffer[array->length] = node;
+    array->length++;
+    return 0;
+}
+
+CSFM_Node* CSFM_NodeArray_get(CSFM_NodeArray array, size_t index) {
+    if (index < array.length) {
+        return &array.buffer[index];
+    }
+    return NULL;
+}
+
+void CSFM_Parse(char *buf, size_t size) {
+}
+*/
 
 /*
 static CSFM_Node* allocateNode() {
