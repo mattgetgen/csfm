@@ -63,9 +63,10 @@ static char CSFM_String8Slice_get(CSFM_String8Slice slice, size_t idx);
 
 typedef enum {
     CSFM_TOKEN_EOF,
-    CSFM_TOKEN_WHITESPACE,
-    CSFM_TOKEN_CARRIAGE_RETURN,
-    CSFM_TOKEN_NEWLINE,
+    CSFM_TOKEN_WS,
+    CSFM_TOKEN_CR,
+    CSFM_TOKEN_LF,
+    CSFM_TOKEN_CRLF,
     CSFM_TOKEN_FORWARDSLASH,
     CSFM_TOKEN_DOUBLE_FORWARDSLASH,
     CSFM_TOKEN_BACKSLASH,
@@ -86,8 +87,8 @@ typedef enum {
 typedef struct {
     size_t start;
     size_t end;
-    size_t row;
-    size_t col;
+    size_t line;
+    size_t column;
     CSFM_TokenType type;
 } CSFM_Token;
 
@@ -107,8 +108,8 @@ CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, size_t index);
 typedef struct {
     CSFM_TokenArray array;
     size_t position;
-    size_t row;
-    size_t col;
+    size_t line;
+    size_t column;
 } CSFM_Tokenizer;
 
 static void CSFM_String8Slice_new(CSFM_String8Slice *slice, char *ptr, size_t length) {
@@ -220,13 +221,13 @@ static CSFM_TokenType peekTokenType(CSFM_String8Slice str, size_t index) {
         break;
     case ' ':
     case '\t':
-        type = CSFM_TOKEN_WHITESPACE;
+        type = CSFM_TOKEN_WS;
         break;
     case '\r':
-        type = CSFM_TOKEN_CARRIAGE_RETURN;
+        type = CSFM_TOKEN_CR;
         break;
     case '\n':
-        type = CSFM_TOKEN_NEWLINE;
+        type = CSFM_TOKEN_LF;
         break;
     case '/':
         type = CSFM_TOKEN_FORWARDSLASH;
@@ -291,8 +292,9 @@ static CSFM_Token peekToken(CSFM_String8Slice str, size_t index) {
     switch (token.type) {
     /* NOTE(mattg): These are 1 character tokens */
     case CSFM_TOKEN_EOF:
-    case CSFM_TOKEN_NEWLINE:
-    /* NOTE(mattg): CSFM_TOKEN_DOUBLE_FORWARDSLASH is never retured by peekTokenType */
+    /* NOTE(mattg): CSFM_TOKEN_CRLF & CSFM_TOKEN_DOUBLE_FORWARDSLASH are never retured by peekTokenType */
+    case CSFM_TOKEN_LF:
+    case CSFM_TOKEN_CRLF:
     case CSFM_TOKEN_DOUBLE_FORWARDSLASH:
     case CSFM_TOKEN_BACKSLASH:
     case CSFM_TOKEN_PIPE:
@@ -308,9 +310,9 @@ static CSFM_Token peekToken(CSFM_String8Slice str, size_t index) {
         token.end = token.start + 1;
         break;
     /* NOTE(mattg): These may be 1-2 character tokens */
-    case CSFM_TOKEN_CARRIAGE_RETURN:
-        if (peekTokenType(str, index+1) == CSFM_TOKEN_NEWLINE) {
-            token.type = CSFM_TOKEN_NEWLINE;
+    case CSFM_TOKEN_CR:
+        if (peekTokenType(str, index+1) == CSFM_TOKEN_LF) {
+            token.type = CSFM_TOKEN_CRLF;
             token.end = token.start + 2;
         } else {
             token.end = token.start + 1;
@@ -325,7 +327,7 @@ static CSFM_Token peekToken(CSFM_String8Slice str, size_t index) {
         }
         break;
     /* NOTE(mattg): These may be 1-N character tokens */
-    case CSFM_TOKEN_WHITESPACE:
+    case CSFM_TOKEN_WS:
     case CSFM_TOKEN_NUMBER:
     case CSFM_TOKEN_TEXT:
         type = token.type;
@@ -338,24 +340,24 @@ static CSFM_Token peekToken(CSFM_String8Slice str, size_t index) {
 }
 
 static int consumeToken(CSFM_Tokenizer *tokenizer, CSFM_Token token) {
-    token.row = tokenizer->row;
-    token.col = tokenizer->col;
+    token.line = tokenizer->line;
+    token.column = tokenizer->column;
     if (CSFM_TokenArray_push(&tokenizer->array, token) != 0) {
         return -1;
     }
     tokenizer->position = token.end;
-    if (token.type == CSFM_TOKEN_NEWLINE) {
-        tokenizer->row = 1;
-        tokenizer->col++;
+    if (token.type == CSFM_TOKEN_CR || token.type == CSFM_TOKEN_LF || token.type == CSFM_TOKEN_CRLF) {
+        tokenizer->line++;
+        tokenizer->column = 1;
     } else {
-        tokenizer->row += (token.end - token.start); /* push the row by the token length. */
+        tokenizer->column += (token.end - token.start); /* push the column by the token length. */
     }
     return 0;
 }
 
 static void tokenizeInternal(CSFM_Tokenizer *tokenizer, CSFM_String8Slice str) {
-    tokenizer->row = 1;
-    tokenizer->col = 1;
+    tokenizer->line = 1;
+    tokenizer->column = 1;
     CSFM_Token token = {0};
     do {
         token = peekToken(str, tokenizer->position);
@@ -381,27 +383,26 @@ CSFM_Tokenizer CSFM_Tokenize(char *buf, size_t size) {
 }
 
 typedef enum {
+    CSFM_NODE_NULL,
     CSFM_NODE_MARKER,
     CSFM_NODE_TEXT
 } CSFM_NodeType;
 
-typedef struct CSFM_NodeArray CSFM_NodeArray;
-
-/*
 typedef struct {
-    CSFM_NodeArray children;
     size_t start;
     size_t end;
-    size_t row;
-    size_t col;
+    size_t line;
+    size_t column;
+    size_t first_child;
+    size_t next;
     CSFM_NodeType type;
 } CSFM_Node;
 
-struct CSFM_NodeArray {
+typedef struct {
     CSFM_Node *buffer;
     size_t length;
     size_t capacity;
-};
+} CSFM_NodeArray;
 
 int CSFM_NodeArray_allocate(CSFM_NodeArray *array, size_t capacity);
 void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
@@ -491,9 +492,51 @@ CSFM_Node* CSFM_NodeArray_get(CSFM_NodeArray array, size_t index) {
     return NULL;
 }
 
-void CSFM_Parse(char *buf, size_t size) {
+typedef struct {
+    CSFM_TokenArray tokens;
+    CSFM_NodeArray AST;
+    size_t token_index;
+} CSFM_Parser;
+
+
+
+void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
+    CSFM_Token *token = NULL;
+    parser->token_index = 0;
+    while (parser->token_index < parser->tokens.length) {
+        token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+        /*
+        switch (token->type) {
+        case CSFM_TOKEN_BACKSLASH:
+            break;
+        default:
+        }*/
+        printf("%d\n", token->type);
+        parser->token_index++;
+    }
+    return;
 }
-*/
+
+CSFM_Parser CSFM_Parse(char *buf, size_t size) {
+    CSFM_Parser parser = {0};
+    CSFM_String8Slice str = {0};
+    CSFM_String8Slice_new(&str, buf, size);
+
+    CSFM_Tokenizer tokenizer = {0};
+    if (CSFM_TokenArray_allocate(&tokenizer.array, size) != 0) {
+        return parser;
+    }
+
+    tokenizeInternal(&tokenizer, str);
+    parser.tokens = tokenizer.array;
+
+    if (CSFM_NodeArray_allocate(&parser.AST, size) != 0) {
+        return parser;
+    }
+
+    parseInternal(&parser, str);
+    return parser;
+}
 
 /*
 static CSFM_Node* allocateNode() {

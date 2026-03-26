@@ -10,22 +10,44 @@
 
 #include "csfm.h"
 
-int main(void) {
-    /*const char *path = "/home/mgetgen/repos/simdusfm/src/usfm/HPUX.usfm";*/
-    /*const char *path = "/home/mgetgen/repos/example_usfm/HPUX/01GENHPUX.SFM";*/
-    /**/const char *path = "/home/mgetgen/repos/example_usfm/WEB/25-JEReng-web.usfm";/**/
-    /*const char *path = "./test.usfm";*/
+typedef struct {
+    long cycles;
+    struct timespec time;
+} Timer;
 
+void getTime(Timer *timer) {
+    timer->cycles = __rdtsc();
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &timer->time) != 0) {
+        exit(1);
+    }
+    return;
+}
+
+void printTimeData(Timer start, Timer end, size_t size) {
+    long cycles = end.cycles - start.cycles;
+    float cyclesPerByte = (float)cycles / (float)size;
+    long nanoseconds = ((end.time.tv_sec - start.time.tv_sec) * (long)1e9) + (
+        end.time.tv_nsec - start.time.tv_nsec
+    );
+    float nanosPerByte = (float)nanoseconds / (float)size;
+    printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
+    printf("%.2f cycles/byte, %.2f ns/byte\n", cyclesPerByte, nanosPerByte);
+}
+
+int main(void) {
+    /*const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";*/
+    /*const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";*/
+    /*const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";*/
+    /**/const char *path = "./test.usfm";/**/
+
+    printf("Reading file:\n");
+    Timer start = {0};
+    Timer end = {0};
+    getTime(&start);
     /*
      * TODO(matt): test if we can get consistent performance from O_DIRECT
      * (minimizes OS caching, check man 2 open)
      */
-    long start_cycles = __rdtsc();
-    struct timespec start_time = {0};
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
-        printf("Error: `clock_gettime` failed\n");
-        return 1;
-    }
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
         printf("Error: `open` failed\n");
@@ -49,36 +71,16 @@ int main(void) {
         printf("Error: `read` failed\n");
         return 1;
     }
-    long end_cycles = __rdtsc();
-    struct timespec end_time = {0};
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
-        printf("Error: `clock_gettime` failed\n");
-        return 1;
-    }
-
-    long cycles = end_cycles - start_cycles;
-    float cyclesPerByte = (float)cycles / (float)size;
-    long nanoseconds = ((end_time.tv_sec - start_time.tv_sec) * (long)1e9) + (
-        end_time.tv_nsec - start_time.tv_nsec
-    );
-    float nanosPerByte = (float)nanoseconds / (float)size;
-    printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
-    printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
-
-    /*
-    long start_cycles = __rdtsc();
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_time) == -1) {
-        printf("Error: `clock_gettime` failed\n");
-        return 1;
-    }
+    getTime(&end);
+    printTimeData(start, end, size);
+    
+    printf("\nTokenizing file:\n");
+    getTime(&start);
 
     CSFM_Tokenizer tokenizer = CSFM_Tokenize((char *)filebuf, size);
 
-    long end_cycles = __rdtsc();
-    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_time) == -1) {
-        printf("Error: `clock_gettime` failed\n");
-        return 1;
-    }
+    getTime(&end);
+    
     size_t i = 0;
     for (i = 0; i < tokenizer.array.length; i++) {
         CSFM_Token token = tokenizer.array.buffer[i];
@@ -86,20 +88,23 @@ int main(void) {
         case CSFM_TOKEN_EOF:
             printf("EOF\n");
             break;
-        case CSFM_TOKEN_WHITESPACE:
+        case CSFM_TOKEN_WS:
             printf(" ");
             break;
-        case CSFM_TOKEN_CARRIAGE_RETURN:
-            printf("CR");
+        case CSFM_TOKEN_CR:
+            printf("CR\n");
             break;
-        case CSFM_TOKEN_NEWLINE:
+        case CSFM_TOKEN_LF:
             printf("LF\n");
+            break;
+        case CSFM_TOKEN_CRLF:
+            printf("CRLF\n");
             break;
         case CSFM_TOKEN_FORWARDSLASH:
             printf("/");
             break;
         case CSFM_TOKEN_DOUBLE_FORWARDSLASH:
-            printf("//");
+            printf("\"//\"");
             break;
         case CSFM_TOKEN_BACKSLASH:
             printf("\\");
@@ -144,19 +149,20 @@ int main(void) {
             printf("UNKNOWN");
         }
     }
-    long cycles = end_cycles - start_cycles;
-    float cyclesPerByte = (float)cycles / (float)size;
-    long nanoseconds = ((end_time.tv_sec - start_time.tv_sec) * (long)1e9) + (
-        end_time.tv_nsec - start_time.tv_nsec
-    );
-    float nanosPerByte = (float)nanoseconds / (float)size;
-    printf("%ld bytes, %ld cycles, %ld ns\n", size, cycles, nanoseconds);
-    printf("%f cycles/byte, %f ns/byte\n", cyclesPerByte, nanosPerByte);
-    */
+    
+    printTimeData(start, end, size);
 
-    /*CSFM_Parse((char *)filebuf, size);*/
+    printf("\nParsing file:\n");
+    getTime(&start);
 
-    /*CSFM_TokenArray_deallocate(&tokenizer.array);*/
+    CSFM_Parser parser = CSFM_Parse((char *)filebuf, size);
+
+    getTime(&end);
+    printTimeData(start, end, size);
+
+    CSFM_NodeArray_deallocate(&parser.AST);
+    CSFM_TokenArray_deallocate(&parser.tokens);
+    CSFM_TokenArray_deallocate(&tokenizer.array);
     free(filebuf);
 
     if (close(fd) == -1) {
