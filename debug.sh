@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-gcc -O0 -std=c89 \
+gcc -O0 -std=c99 \
     -Werror -Wall -Wextra -pedantic \
     -Wno-unused-function \
     -Wno-unused-parameter \

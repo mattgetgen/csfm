@@ -35,19 +35,17 @@ void printTimeData(Timer start, Timer end, size_t size) {
 }
 
 int main(void) {
-    /*const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";*/
-    /*const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";*/
-    /*const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";*/
-    /**/const char *path = "./test.usfm";/**/
+    //const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
+    //const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
+    //const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
+    const char *path = "./test.usfm";
 
     printf("Reading file:\n");
     Timer start = {0};
     Timer end = {0};
     getTime(&start);
-    /*
-     * TODO(matt): test if we can get consistent performance from O_DIRECT
-     * (minimizes OS caching, check man 2 open)
-     */
+    // TODO(matt): test if we can get consistent performance from O_DIRECT
+    // (minimizes OS caching, check man 2 open)
     int fd = open(path, O_RDONLY);
     if (fd == -1) {
         printf("Error: `open` failed\n");
@@ -77,7 +75,7 @@ int main(void) {
     printf("\nTokenizing file:\n");
     getTime(&start);
 
-    CSFM_Tokenizer tokenizer = CSFM_Tokenize((char *)filebuf, size);
+    CSFM_Tokenizer tokenizer = CSFM_Tokenize((uint8_t *)filebuf, size);
 
     getTime(&end);
     
@@ -155,7 +153,7 @@ int main(void) {
     printf("\nParsing file:\n");
     getTime(&start);
 
-    CSFM_Parser parser = CSFM_Parse((char *)filebuf, size);
+    CSFM_Parser parser = CSFM_Parse((uint8_t *)filebuf, size);
 
     getTime(&end);
     printTimeData(start, end, size);
