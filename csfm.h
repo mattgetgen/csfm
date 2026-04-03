@@ -59,7 +59,6 @@ typedef struct {
     uint32_t length;
 } CSFM_String8Slice;
 
-static inline void CSFM_String8Slice_new(CSFM_String8Slice *slice, uint8_t *ptr, uint32_t length);
 static inline char CSFM_String8Slice_get(CSFM_String8Slice slice, uint32_t idx);
 
 typedef enum {
@@ -73,6 +72,7 @@ typedef enum {
     CSFM_TOKEN_BACKSLASH,
     CSFM_TOKEN_PIPE,
     CSFM_TOKEN_PERIOD,
+    CSFM_TOKEN_COMMA,
     CSFM_TOKEN_COLON,
     CSFM_TOKEN_SEMICOLON,
     CSFM_TOKEN_TILDE,
@@ -93,6 +93,13 @@ typedef struct {
     CSFM_TokenType type;
 } CSFM_Token;
 
+// NOTE(mattg): For testing purposes only
+static inline void printTokenText(CSFM_Token *token, CSFM_String8Slice str) {
+    uint32_t length = token->end - token->start;
+    char *string = (char *)&str.ptr[token->start];
+    printf("%*.*s", length, length, string);
+}
+
 typedef struct {
     CSFM_Token *buffer;
     uint32_t length;
@@ -112,14 +119,6 @@ typedef struct {
     uint32_t line;
     uint32_t column;
 } CSFM_Tokenizer;
-
-static inline void CSFM_String8Slice_new(CSFM_String8Slice *slice, uint8_t *ptr, uint32_t length) {
-    if (slice == NULL) {
-        return;
-    }
-    slice->ptr = ptr;
-    slice->length = length;
-}
 
 static inline char CSFM_String8Slice_get(CSFM_String8Slice slice, uint32_t index) {
     if (index >= slice.length) {
@@ -212,7 +211,20 @@ CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, uint32_t index) {
     return NULL;
 }
 
-static CSFM_TokenType peekTokenType(CSFM_String8Slice str, uint32_t index) {
+static inline int tokenTypeIsWhitespace(CSFM_TokenType type) {
+    switch (type) {
+    case CSFM_TOKEN_EOF:
+    case CSFM_TOKEN_WS:
+    case CSFM_TOKEN_CR:
+    case CSFM_TOKEN_LF:
+    case CSFM_TOKEN_CRLF:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static inline CSFM_TokenType peekTokenType(CSFM_String8Slice str, uint32_t index) {
     CSFM_TokenType type = CSFM_TOKEN_EOF;
     switch (CSFM_String8Slice_get(str, index)) {
     case '\0':
@@ -239,6 +251,9 @@ static CSFM_TokenType peekTokenType(CSFM_String8Slice str, uint32_t index) {
         break;
     case '.':
         type = CSFM_TOKEN_PERIOD;
+        break;
+    case ',':
+        type = CSFM_TOKEN_COMMA;
         break;
     case ':':
         type = CSFM_TOKEN_COLON;
@@ -283,7 +298,7 @@ static CSFM_TokenType peekTokenType(CSFM_String8Slice str, uint32_t index) {
     return type;
 }
 
-static CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
+static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     CSFM_Token token = {0};
     token.start = index;
     token.type = peekTokenType(str, index);
@@ -291,13 +306,14 @@ static CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     switch (token.type) {
     // NOTE(mattg): These are 1 character tokens
     case CSFM_TOKEN_EOF:
-    // NOTE(mattg): CSFM_TOKEN_CRLF & CSFM_TOKEN_DOUBLE_FORWARDSLASH are never retured by peekTokenType
     case CSFM_TOKEN_LF:
+    // NOTE(mattg): CSFM_TOKEN_CRLF & CSFM_TOKEN_DOUBLE_FORWARDSLASH are never retured by peekTokenType
     case CSFM_TOKEN_CRLF:
     case CSFM_TOKEN_DOUBLE_FORWARDSLASH:
     case CSFM_TOKEN_BACKSLASH:
     case CSFM_TOKEN_PIPE:
     case CSFM_TOKEN_PERIOD:
+    case CSFM_TOKEN_COMMA:
     case CSFM_TOKEN_COLON:
     case CSFM_TOKEN_SEMICOLON:
     case CSFM_TOKEN_TILDE:
@@ -338,7 +354,7 @@ static CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     return token;
 }
 
-static int consumeToken(CSFM_Tokenizer *tokenizer, CSFM_Token token) {
+static inline int consumeToken(CSFM_Tokenizer *tokenizer, CSFM_Token token) {
     token.line = tokenizer->line;
     token.column = tokenizer->column;
     if (CSFM_TokenArray_push(&tokenizer->array, token) != 0) {
@@ -368,8 +384,10 @@ static void tokenizeInternal(CSFM_Tokenizer *tokenizer, CSFM_String8Slice str) {
 }
 
 CSFM_Tokenizer CSFM_Tokenize(uint8_t *buf, size_t size) {
-    CSFM_String8Slice str = {0};
-    CSFM_String8Slice_new(&str, buf, size);
+    CSFM_String8Slice str = {
+        .ptr = buf,
+        .length = size,
+    };
 
     CSFM_Tokenizer tokenizer = {0};
     if (CSFM_TokenArray_allocate(&tokenizer.array, size) != 0) {
@@ -384,8 +402,17 @@ CSFM_Tokenizer CSFM_Tokenize(uint8_t *buf, size_t size) {
 typedef enum {
     CSFM_NODE_NULL,
     CSFM_NODE_MARKER,
-    CSFM_NODE_TEXT
+    CSFM_NODE_TEXT,
+    CSFM_NODE_WHITESPACE,
+    CSFM_NODE_NEWLINE,
 } CSFM_NodeType;
+//
+// typedef enum {
+//     CSFM_MARKER_TYPE_NORMAL,
+//     CSFM_MARKER_TYPE_NESTED,
+//     CSFM_MARKER_TYPE_CLOSE,
+//     CSFM_MARKER_TYPE_NESTED_CLOSE,
+// } CSFM_MarkerType;
 
 typedef struct {
     uint32_t start;
@@ -395,7 +422,15 @@ typedef struct {
     uint32_t first_child;
     uint32_t next;
     CSFM_NodeType type;
+    // CSFM_MarkerType marker_type;
 } CSFM_Node;
+
+// NOTE(mattg): For testing purposes only
+static inline void printNodeText(CSFM_Node *node, CSFM_String8Slice str) {
+    uint32_t length = node->end - node->start;
+    char *string = (char *)&str.ptr[node->start];
+    printf("%*.*s", length, length, string);
+}
 
 typedef struct {
     CSFM_Node *buffer;
@@ -497,29 +532,175 @@ typedef struct {
     uint32_t token_index;
 } CSFM_Parser;
 
+void parseMarker(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
+    CSFM_Token *token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
 
+    // start with basics, expect text.
+    assert(token->type == CSFM_TOKEN_TEXT);
+    node->end = token->end;
+    parser->token_index++;
+
+    // accept +
+    // int hasPlus = token->type == CSFM_TOKEN_PLUS;
+    // if (hasPlus) {
+    //     // node->marker_type = CSFM_MARKER_TYPE_NESTED;
+    //     printTokenText(token, str);
+    //     parser->token_index++;
+    //     token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+    // }
+
+    // expect text or *
+    // int hasAsterisk = 0;
+    // switch (token->type) {
+    // case CSFM_TOKEN_TEXT:
+    //     printTokenText(token, str);
+    //     parser->token_index++;
+    //     break;
+    // case CSFM_TOKEN_ASTERISK:
+    //     hasAsterisk = 1;
+    //     printTokenText(token, str);
+    //     parser->token_index++;
+    //     break;
+    // default:
+    //     printf("Unexpected token type: %d\n", token->type);
+    //     return;
+    // }
+    //
+    // token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+
+    // if (!hasAsterisk) {
+    //     // TODO(mattg): flesh out more complex markers.
+    //
+    //     // accept number
+    //     // accept -
+    //     // if - expect text or number
+    //     // accept *
+    //     if (token->type == CSFM_TOKEN_ASTERISK) {
+    //         hasAsterisk = 1;
+    //         printTokenText(token, str);
+    //         parser->token_index++;
+    //         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+    //     }
+    // }
+
+    // return on whitespace/newline/end of file
+    // switch (token->type) {
+    // case CSFM_TOKEN_EOF:
+    // case CSFM_TOKEN_WS:
+    // case CSFM_TOKEN_CR:
+    // case CSFM_TOKEN_LF:
+    // case CSFM_TOKEN_CRLF:
+    //     node->end = token->start;
+    //     // if (hasAsterisk) {
+    //     //     if (node->marker_type == CSFM_MARKER_TYPE_NESTED) {
+    //     //         node->marker_type = CSFM_MARKER_TYPE_NESTED_CLOSE;
+    //     //     } else {
+    //     //         node->marker_type = CSFM_MARKER_TYPE_CLOSE;
+    //     //     }
+    //     // }
+    //
+    //     // consume whitespace
+    //     parser->token_index++;
+    //     if (CSFM_NodeArray_push(&parser->AST, *node) != 0) {
+    //         return;
+    //     }
+    //     break;
+    // default:
+    //     printf("Unexpected token type: %d\n", token->type);
+    //     return;
+    // }
+}
+
+void parseText(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
+    CSFM_Token *token = NULL;
+    int endParse = 0;
+    do {
+        token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+        switch (token->type) {
+        case CSFM_TOKEN_EOF:
+        case CSFM_TOKEN_CR:
+        case CSFM_TOKEN_LF:
+        case CSFM_TOKEN_CRLF:
+        case CSFM_TOKEN_BACKSLASH:
+            endParse = 1;
+            break;
+        default:
+            node->end = token->end;
+            parser->token_index++;
+        }
+    } while (!endParse);
+}
+
+// typedef struct {
+//     uint32_t start;
+//     uint32_t end;
+//     uint32_t line;
+//     uint32_t column;
+//     uint32_t first_child;
+//     uint32_t next;
+//     CSFM_NodeType type;
+//     CSFM_MarkerType marker_type;
+// } CSFM_Node;
 
 void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
     CSFM_Token *token = NULL;
     parser->token_index = 0;
     while (parser->token_index < parser->tokens.length) {
         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-        /*
+        CSFM_Node node = {
+            .start = token->start,
+            .end = token->end,
+            .line = token->line,
+            .column = token->column,
+        };
         switch (token->type) {
         case CSFM_TOKEN_BACKSLASH:
+            node.type = CSFM_NODE_MARKER;
+            // node.marker_type = CSFM_MARKER_TYPE_NORMAL;
+            parser->token_index++;
+            parseMarker(parser, str, &node);
+
+            assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
+            printNodeText(&node, str);
             break;
+        case CSFM_TOKEN_WS:
+            node.type = CSFM_NODE_WHITESPACE;
+
+            assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
+            printNodeText(&node, str);
+
+            parser->token_index++;
+            break;
+        case CSFM_TOKEN_CR:
+        case CSFM_TOKEN_LF:
+        case CSFM_TOKEN_CRLF:
+            node.type = CSFM_NODE_NEWLINE;
+
+            assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
+            printNodeText(&node, str);
+
+            parser->token_index++;
+            break;
+        case CSFM_TOKEN_EOF:
+            return;
         default:
-        }*/
-        printf("%d\n", token->type);
-        parser->token_index++;
+            node.type = CSFM_NODE_TEXT;
+            parser->token_index++;
+            parseText(parser, str, &node);
+
+            assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
+            printNodeText(&node, str);
+        }
     }
     return;
 }
 
 CSFM_Parser CSFM_Parse(uint8_t *buf, size_t size) {
     CSFM_Parser parser = {0};
-    CSFM_String8Slice str = {0};
-    CSFM_String8Slice_new(&str, buf, size);
+    CSFM_String8Slice str = {
+        .ptr = buf,
+        .length = size,
+    };
 
     CSFM_Tokenizer tokenizer = {0};
     if (CSFM_TokenArray_allocate(&tokenizer.array, size) != 0) {
@@ -536,212 +717,5 @@ CSFM_Parser CSFM_Parse(uint8_t *buf, size_t size) {
     parseInternal(&parser, str);
     return parser;
 }
-
-/*
-static CSFM_Node* allocateNode() {
-    CSFM_Node *node = malloc(sizeof(CSFM_Node));
-    if (node == NULL) {
-        *//* TODO(matt): handle failed allocation *//*
-    }
-    *//* TODO(matt): look into what secure memset is, use it if I should */
-    /*memset(node, 0, sizeof(CSFM_Node));
-
-    return node;
-}
-
-static void parseAny(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent);
-static void parseMarker(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent);
-static void parseText(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent);
-
-static void parseAny(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent) {
-    CSFM_Token *token = CSFM_TokenArray_get(array, *tokenIndex);
-    if (token->type != CSFM_TOKEN_BACKSLASH) {
-        parseText(array, tokenIndex, parent);
-        return;
-    }
-    parseMarker(array, tokenIndex, parent);
-    if (parent->next != NULL) {
-        parseText(array, tokenIndex, parent->next);
-    }
-    return;
-}
-
-static void parseMarker(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent) {
-    CSFM_Token *token = NULL;
-    CSFM_Node *marker = NULL;
-
-    token = CSFM_TokenArray_get(array, *tokenIndex);
-    if (token == NULL) {
-        return;
-    }
-    do {
-        switch (token->type) {
-        case CSFM_TOKEN_EOF:
-        case CSFM_TOKEN_WHITESPACE:
-        case CSFM_TOKEN_CARRIAGE_RETURN:
-        case CSFM_TOKEN_NEWLINE:
-            if (marker != NULL) {
-                marker->end = token->start;
-                return;
-            }
-            break;
-        case CSFM_TOKEN_BACKSLASH:
-            if (marker == NULL) {
-                marker = allocateNode();
-                if (marker != NULL) {
-                    marker->type = CSFM_NODE_MARKER;
-                    marker->start = token->start;
-                    parent->next = marker;
-                }
-            }
-            break;
-        case CSFM_TOKEN_FORWARDSLASH:
-        case CSFM_TOKEN_PIPE:
-        case CSFM_TOKEN_COLON:
-        case CSFM_TOKEN_SEMICOLON:
-        case CSFM_TOKEN_TILDE:
-        case CSFM_TOKEN_ASTERISK:
-        case CSFM_TOKEN_PLUS:
-        case CSFM_TOKEN_MINUS:
-        case CSFM_TOKEN_EQUAL:
-        case CSFM_TOKEN_DOUBLE_QUOTE:
-        case CSFM_TOKEN_NUMBER:
-            if (marker != NULL) {
-                marker->end = token->start;
-                return;
-            }
-            break;
-        case CSFM_TOKEN_TEXT:
-            break;
-        }
-
-        (*tokenIndex)++;
-        token = CSFM_TokenArray_get(array, *tokenIndex);
-    } while (token != NULL);
-}
-
-static void parseText(CSFM_TokenArray array, size_t *tokenIndex, CSFM_Node *parent) {
-    CSFM_Token *token = NULL;
-    CSFM_Node *text = NULL;
-    token = CSFM_TokenArray_get(array, *tokenIndex);
-    if (token == NULL) {
-        return;
-    }
-    do {
-        switch (token->type) {
-        case CSFM_TOKEN_EOF:
-            if (text != NULL) {
-                text->end = token->start;
-            }
-            return;
-            break;
-        case CSFM_TOKEN_WHITESPACE:
-            break;
-        case CSFM_TOKEN_CARRIAGE_RETURN:
-        case CSFM_TOKEN_NEWLINE:
-            if (text != NULL) {
-                text->end = token->start;
-                return;
-            }
-            break;
-        case CSFM_TOKEN_BACKSLASH:
-            if (text != NULL) {
-                text->end = token->start;
-            }
-            return;
-            break;
-        case CSFM_TOKEN_FORWARDSLASH:
-        case CSFM_TOKEN_PIPE:
-        case CSFM_TOKEN_COLON:
-        case CSFM_TOKEN_SEMICOLON:
-        case CSFM_TOKEN_TILDE:
-        case CSFM_TOKEN_ASTERISK:
-        case CSFM_TOKEN_PLUS:
-        case CSFM_TOKEN_MINUS:
-        case CSFM_TOKEN_EQUAL:
-        case CSFM_TOKEN_DOUBLE_QUOTE:
-        case CSFM_TOKEN_NUMBER:
-        case CSFM_TOKEN_TEXT:
-            if (text == NULL) {
-                text = allocateNode();
-                if (text != NULL) {
-                    text->type = CSFM_NODE_TEXT;
-                    text->start = token->start;
-                    parent->child = text;
-                }
-            }
-            break;
-        }
-
-        (*tokenIndex)++;
-        token = CSFM_TokenArray_get(array, *tokenIndex);
-    } while (token != NULL);
-}
-
-static int printNode(CSFM_Node *node, int indent);
-
-static int printNode(CSFM_Node *node, int indent) {
-    int returnVal = 0;
-    printf("%d ", indent);
-    switch (node->type) {
-    case CSFM_NODE_UNKNOWN:
-        printf("UNKNOWN\n");
-        break;
-    case CSFM_NODE_ROOT:
-        returnVal = 1;
-        printf("ROOT\n");
-        break;
-    case CSFM_NODE_INVALID:
-        printf("INVALID\n");
-        break;
-    case CSFM_NODE_MARKER:
-        printf("MARKER\n");
-        break;
-    case CSFM_NODE_TEXT:
-        printf("TEXT\n");
-        break;
-    }
-    if (node->child != NULL) {
-        returnVal = printNode(node->child, indent+1);
-        free(node->child);
-        node->child = NULL;
-    }
-    if (node->next != NULL) {
-        returnVal = printNode(node->next, indent);
-        free(node->next);
-        node->next = NULL;
-    }
-    return returnVal;
-}
-
-void CSFM_Parse(char *buf, size_t size) {
-    CSFM_String8Slice str = {0};
-    CSFM_String8Slice_new(&str, buf, size);
-    CSFM_TokenArray array = {0};
-    if (CSFM_TokenArray_allocate(&array, size) != 0) {
-        return;
-    }
-
-    tokenizeInternal(str, &array);
-
-    CSFM_Node *root = allocateNode();
-    root->type = CSFM_NODE_ROOT;
-    
-    size_t tokenIndex = 0;
-
-    while (tokenIndex < array.length) {
-        parseAny(array, &tokenIndex, root);
-    }
-
-    while (1) {
-        if (printNode(root, 1) == 1) {
-            break;
-        }
-    }
-    free(root);
-    CSFM_TokenArray_deallocate(&array);
-
-    return;
-}*/
 
 #endif // CSFM

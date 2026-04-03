@@ -79,8 +79,7 @@ int main(void) {
 
     getTime(&end);
     
-    size_t i = 0;
-    for (i = 0; i < tokenizer.array.length; i++) {
+    for (uint32_t i = 0; i < tokenizer.array.length; i++) {
         CSFM_Token token = tokenizer.array.buffer[i];
         switch (token.type) {
         case CSFM_TOKEN_EOF:
@@ -112,6 +111,9 @@ int main(void) {
             break;
         case CSFM_TOKEN_PERIOD:
             printf(".");
+            break;
+        case CSFM_TOKEN_COMMA:
+            printf(",");
             break;
         case CSFM_TOKEN_COLON:
             printf(":");
