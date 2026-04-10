@@ -94,14 +94,8 @@ int main(void) {
         case CSFM_TOKEN_LF:
             printf("LF\n");
             break;
-        case CSFM_TOKEN_CRLF:
-            printf("CRLF\n");
-            break;
         case CSFM_TOKEN_FORWARDSLASH:
             printf("/");
-            break;
-        case CSFM_TOKEN_DOUBLE_FORWARDSLASH:
-            printf("\"//\"");
             break;
         case CSFM_TOKEN_BACKSLASH:
             printf("\\");
