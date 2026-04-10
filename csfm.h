@@ -360,13 +360,13 @@ typedef enum {
     CSFM_NODE_NEWLINE,
     CSFM_NODE_EOF,
 } CSFM_NodeType;
-//
-// typedef enum {
-//     CSFM_MARKER_TYPE_NORMAL,
-//     CSFM_MARKER_TYPE_NESTED,
-//     CSFM_MARKER_TYPE_CLOSE,
-//     CSFM_MARKER_TYPE_NESTED_CLOSE,
-// } CSFM_MarkerType;
+
+typedef enum {
+    CSFM_MARKER_TYPE_NORMAL,
+    CSFM_MARKER_TYPE_CLOSE,
+    CSFM_MARKER_TYPE_NESTED,
+    CSFM_MARKER_TYPE_NESTED_CLOSE,
+} CSFM_MarkerType;
 
 typedef struct {
     uint32_t start;
@@ -376,7 +376,7 @@ typedef struct {
     uint32_t first_child;
     uint32_t next;
     CSFM_NodeType type;
-    // CSFM_MarkerType marker_type;
+    CSFM_MarkerType marker_type;
 } CSFM_Node;
 
 // NOTE(mattg): For testing purposes only
@@ -500,18 +500,60 @@ typedef struct {
 void parseMarker(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
     CSFM_Token *token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
 
-    // start with basics, expect text.
-    assert(token->type == CSFM_TOKEN_TEXT);
-    node->end = token->end;
-    parser->token_index++;
-
-    // accept +
-    // expect text or *
+    // accept '+' OR '*' OR text.
+    switch (token->type) {
+    case CSFM_TOKEN_ASTERISK:
+        // end of marker
+        node->marker_type = CSFM_MARKER_TYPE_CLOSE;
+        node->end = token->end;
+        parser->token_index++;
+        return;
+    case CSFM_TOKEN_PLUS:
+        node->marker_type = CSFM_MARKER_TYPE_NESTED;
+        node->end = token->end;
+        parser->token_index++;
+        token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+        
+        // just get the text after the plus
+        node->end = token->end;
+        parser->token_index++;
+        if (token-> type != CSFM_TOKEN_TEXT) {
+            // TODO(mattg): error handling. Something something unexpected token.
+            return;
+        }
+        token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+        break;
+    case CSFM_TOKEN_TEXT:
+        node->end = token->end;
+        parser->token_index++;
+        token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
+        break;
+    default:
+        node->end = token->end;
+        parser->token_index++;
+        // TODO(mattg): error handling. Something something unexpected token.
+        return;
+    }
+    
     // accept number
+    // NOTE(mattg): this would change the marker text length, but for now we don't track that.
+
     // accept -
     // if - expect text or number
     // accept *
+    if (token->type == CSFM_TOKEN_ASTERISK) {
+        node->marker_type++;
+        node->end = token->end;
+        parser->token_index++;
+        return;
+    }
     // return on whitespace/newline/end of file
+
+    // start with basics, expect text.
+    // assert(token->type == CSFM_TOKEN_TEXT);
+    // node->end = token->end;
+    // parser->token_index++;
+
 }
 
 void parseText(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
@@ -558,6 +600,7 @@ void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
         switch (token->type) {
         case CSFM_TOKEN_BACKSLASH:
             node.type = CSFM_NODE_MARKER;
+            assert(node.marker_type == CSFM_MARKER_TYPE_NORMAL);
             parser->token_index++;
             parseMarker(parser, str, &node);
             break;
