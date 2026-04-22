@@ -377,6 +377,8 @@ typedef struct {
     uint32_t next;
     CSFM_NodeType type;
     CSFM_MarkerType marker_type;
+    uint32_t marker_text_start;
+    uint32_t marker_text_end;
 } CSFM_Node;
 
 // NOTE(mattg): For testing purposes only
@@ -521,10 +523,14 @@ void parseMarker(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
             // TODO(mattg): error handling. Something something unexpected token.
             return;
         }
+        node->marker_text_start = token->start;
+        node->marker_text_end = token->end;
         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
         break;
     case CSFM_TOKEN_TEXT:
         node->end = token->end;
+        node->marker_text_start = token->start;
+        node->marker_text_end = token->end;
         parser->token_index++;
         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
         break;
