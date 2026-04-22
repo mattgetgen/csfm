@@ -61,7 +61,7 @@ typedef struct {
 static inline char CSFM_String8Slice_get(CSFM_String8Slice slice, uint32_t idx);
 
 typedef enum {
-    CSFM_TOKEN_EOF,
+    CSFM_TOKEN_NULL,
     CSFM_TOKEN_WS,
     CSFM_TOKEN_CR,
     CSFM_TOKEN_LF,
@@ -205,10 +205,10 @@ CSFM_Token* CSFM_TokenArray_get(CSFM_TokenArray array, uint32_t index) {
 }
 
 static inline CSFM_TokenType peekTokenType(CSFM_String8Slice str, uint32_t index) {
-    CSFM_TokenType type = CSFM_TOKEN_EOF;
+    CSFM_TokenType type = CSFM_TOKEN_NULL;
     switch (CSFM_String8Slice_get(str, index)) {
     case '\0':
-        type = CSFM_TOKEN_EOF;
+        type = CSFM_TOKEN_NULL;
         break;
     case ' ':
     case '\t':
@@ -282,10 +282,13 @@ static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     CSFM_Token token = {0};
     token.start = index;
     token.type = peekTokenType(str, index);
-    CSFM_TokenType type = CSFM_TOKEN_EOF;
+    CSFM_TokenType type = CSFM_TOKEN_NULL;
     switch (token.type) {
     // NOTE(mattg): These are 1 character tokens
-    case CSFM_TOKEN_EOF:
+    case CSFM_TOKEN_NULL:
+        token.start = 0;
+        token.end = 0;
+        break;
     case CSFM_TOKEN_CR:
     case CSFM_TOKEN_LF:
     case CSFM_TOKEN_FORWARDSLASH:
@@ -317,6 +320,10 @@ static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
 }
 
 static inline int consumeToken(CSFM_Tokenizer *tokenizer, CSFM_Token token) {
+    // NOTE(mattg): don't consume NULLs
+    if (token.type == CSFM_TOKEN_NULL) {
+        return 0;
+    }
     if (CSFM_TokenArray_push(&tokenizer->array, token) != 0) {
         return -1;
     }
@@ -331,7 +338,7 @@ static void tokenizeInternal(CSFM_Tokenizer *tokenizer, CSFM_String8Slice str) {
         if (consumeToken(tokenizer, token) == -1) {
             break;
         }
-    } while (token.type != CSFM_TOKEN_EOF);
+    } while (token.type != CSFM_TOKEN_NULL);
     return;
 }
 
@@ -357,7 +364,6 @@ typedef enum {
     CSFM_NODE_TEXT,
     CSFM_NODE_WHITESPACE,
     CSFM_NODE_NEWLINE,
-    CSFM_NODE_EOF,
 } CSFM_NodeType;
 
 typedef enum {
@@ -386,12 +392,10 @@ static inline void printNodeText(CSFM_Node *node, CSFM_String8Slice str) {
     char *string = (char *)&str.ptr[node->start];
     switch (node->type) {
     case CSFM_NODE_NULL:
+        printf("[NULL]\n");
         break;
     case CSFM_NODE_NEWLINE:
         printf("[NEWLINE]\n");
-        break;
-    case CSFM_NODE_EOF:
-        printf("[EOF]\n");
         break;
     default:
         printf("[%*.*s]", length, length, string);
@@ -567,7 +571,7 @@ void parseText(CSFM_Parser *parser, CSFM_String8Slice str, CSFM_Node *node) {
     do {
         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
         switch (token->type) {
-        case CSFM_TOKEN_EOF:
+        case CSFM_TOKEN_NULL:
         case CSFM_TOKEN_CR:
         case CSFM_TOKEN_LF:
         case CSFM_TOKEN_BACKSLASH:
@@ -627,8 +631,8 @@ void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
             node.type = CSFM_NODE_NEWLINE;
             parser->token_index++;
             break;
-        case CSFM_TOKEN_EOF:
-            node.type = CSFM_NODE_EOF;
+        case CSFM_TOKEN_NULL:
+            node.type = CSFM_NODE_NULL;
             break;
         default:
             node.type = CSFM_NODE_TEXT;
@@ -637,7 +641,7 @@ void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
         }
         assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
         printNodeText(&node, str);
-    } while (parser->token_index < parser->tokens.length && token->type != CSFM_TOKEN_EOF);
+    } while (parser->token_index < parser->tokens.length && token->type != CSFM_TOKEN_NULL);
     return;
 }
 

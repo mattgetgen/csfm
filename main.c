@@ -82,8 +82,8 @@ int main(void) {
     for (uint32_t i = 0; i < tokenizer.array.length; i++) {
         CSFM_Token token = tokenizer.array.buffer[i];
         switch (token.type) {
-        case CSFM_TOKEN_EOF:
-            printf("EOF\n");
+        case CSFM_TOKEN_NULL:
+            printf("NULL\n");
             break;
         case CSFM_TOKEN_WS:
             printf(" ");
