@@ -89,10 +89,22 @@ typedef struct {
 } CSFM_Token;
 
 // NOTE(mattg): For testing purposes only
-static inline void printTokenText(CSFM_Token *token, CSFM_String8Slice str) {
-    uint32_t length = token->end - token->start;
-    char *string = (char *)&str.ptr[token->start];
-    printf("%*.*s", length, length, string);
+void debugPrintToken(CSFM_Token token, CSFM_String8Slice str) {
+    uint32_t length = token.end - token.start;
+    char *string = (char *)&str.ptr[token.start];
+    switch (token.type) {
+    case CSFM_TOKEN_NULL:
+        printf("[NULL]\n");
+        break;
+    case CSFM_TOKEN_CR:
+        printf("[CR]\n");
+        break;
+    case CSFM_TOKEN_LF:
+        printf("[LF]\n");
+        break;
+    default:
+        printf("[%*.*s]", length, length, string);
+    }
 }
 
 typedef struct {
@@ -388,15 +400,15 @@ typedef struct {
 } CSFM_Node;
 
 // NOTE(mattg): For testing purposes only
-static inline void printNodeText(CSFM_Node *node, CSFM_String8Slice str) {
-    uint32_t length = node->end - node->start;
-    char *string = (char *)&str.ptr[node->start];
-    switch (node->type) {
+void debugPrintNode(CSFM_Node node, CSFM_String8Slice str) {
+    uint32_t length = node.end - node.start;
+    char *string = (char *)&str.ptr[node.start];
+    switch (node.type) {
     case CSFM_NODE_NULL:
         printf("[NULL]\n");
         break;
     case CSFM_NODE_NEWLINE:
-        printf("[NEWLINE]\n");
+        printf("[NL]\n");
         break;
     default:
         printf("[%*.*s]", length, length, string);
@@ -586,18 +598,7 @@ void parseText(CSFM_Parser *parser, CSFM_Node *node) {
     } while (!endParse);
 }
 
-// typedef struct {
-//     uint32_t start;
-//     uint32_t end;
-//     uint32_t line;
-//     uint32_t column;
-//     uint32_t first_child;
-//     uint32_t next;
-//     CSFM_NodeType type;
-//     CSFM_MarkerType marker_type;
-// } CSFM_Node;
-
-void parseInternal(CSFM_Parser *parser/*, CSFM_String8Slice str*/) {
+void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
     CSFM_Token token = {0};
     parser->token_index = 0;
     // CSFM_Node prev_node = {0};
@@ -642,7 +643,6 @@ void parseInternal(CSFM_Parser *parser/*, CSFM_String8Slice str*/) {
             break;
         }
         assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
-        // printNodeText(&node, str);
     } while (parser->token_index < parser->tokens.length && token.type != CSFM_TOKEN_NULL);
     return;
 }
@@ -666,7 +666,7 @@ CSFM_Parser CSFM_Parse(uint8_t *buf, size_t size) {
         return parser;
     }
 
-    parseInternal(&parser/*, str*/);
+    parseInternal(&parser, str);
     return parser;
 }
 

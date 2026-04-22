@@ -35,10 +35,10 @@ void printTimeData(Timer start, Timer end, size_t size) {
 }
 
 int main(void) {
-    // const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
+    const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
-    const char *path = "./test.usfm";
+    // const char *path = "./test.usfm";
 
     printf("Reading file:\n");
     Timer start = {0};
@@ -76,73 +76,15 @@ int main(void) {
     getTime(&start);
 
     CSFM_Tokenizer tokenizer = CSFM_Tokenize((uint8_t *)filebuf, size);
+    // CSFM_String8Slice str = {.ptr = filebuf, .length = size};
 
     getTime(&end);
     
     // for (uint32_t i = 0; i < tokenizer.array.length; i++) {
-    //     CSFM_Token token = tokenizer.array.buffer[i];
-    //     switch (token.type) {
-    //     case CSFM_TOKEN_NULL:
-    //         printf("NULL\n");
-    //         break;
-    //     case CSFM_TOKEN_WS:
-    //         printf(" ");
-    //         break;
-    //     case CSFM_TOKEN_CR:
-    //         printf("CR\n");
-    //         break;
-    //     case CSFM_TOKEN_LF:
-    //         printf("LF\n");
-    //         break;
-    //     case CSFM_TOKEN_FORWARDSLASH:
-    //         printf("/");
-    //         break;
-    //     case CSFM_TOKEN_BACKSLASH:
-    //         printf("\\");
-    //         break;
-    //     case CSFM_TOKEN_PIPE:
-    //         printf("|");
-    //         break;
-    //     case CSFM_TOKEN_PERIOD:
-    //         printf(".");
-    //         break;
-    //     case CSFM_TOKEN_COMMA:
-    //         printf(",");
-    //         break;
-    //     case CSFM_TOKEN_COLON:
-    //         printf(":");
-    //         break;
-    //     case CSFM_TOKEN_SEMICOLON:
-    //         printf(";");
-    //         break;
-    //     case CSFM_TOKEN_TILDE:
-    //         printf("~");
-    //         break;
-    //     case CSFM_TOKEN_ASTERISK:
-    //         printf("*");
-    //         break;
-    //     case CSFM_TOKEN_PLUS:
-    //         printf("+");
-    //         break;
-    //     case CSFM_TOKEN_MINUS:
-    //         printf("-");
-    //         break;
-    //     case CSFM_TOKEN_EQUAL:
-    //         printf("=");
-    //         break;
-    //     case CSFM_TOKEN_DOUBLE_QUOTE:
-    //         printf("\"");
-    //         break;
-    //     case CSFM_TOKEN_NUMBER:
-    //         printf("0");
-    //         break;
-    //     case CSFM_TOKEN_TEXT:
-    //         printf("A");
-    //         break;
-    //     default:
-    //         printf("UNKNOWN");
-    //     }
+    //     CSFM_Token token = CSFM_TokenArray_get(tokenizer.array, i);
+    //     debugPrintToken(token, str);
     // }
+    printf("# tokens: %d\n", tokenizer.array.length);
     
     printTimeData(start, end, size);
 
@@ -152,6 +94,12 @@ int main(void) {
     CSFM_Parser parser = CSFM_Parse((uint8_t *)filebuf, size);
 
     getTime(&end);
+
+    // for (uint32_t i = 0; i < parser.AST.length; i++) {
+    //     CSFM_Node node = CSFM_NodeArray_get(parser.AST, i);
+    //     debugPrintNode(node, str);
+    // }
+    printf("# nodes: %d\n", parser.AST.length);
     printTimeData(start, end, size);
 
     CSFM_NodeArray_deallocate(&parser.AST);
