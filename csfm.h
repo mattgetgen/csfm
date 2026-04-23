@@ -120,11 +120,6 @@ static int CSFM_TokenArray_resize(CSFM_TokenArray *array, uint32_t newCapacity);
 static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token);
 CSFM_Token CSFM_TokenArray_get(CSFM_TokenArray array, uint32_t index);
 
-// typedef struct {
-//     CSFM_String8Slice input;
-//     uint32_t position;
-// } CSFM_Tokenizer;
-
 typedef struct {
     CSFM_String8Slice input;
     CSFM_TokenArray tokens;
@@ -304,9 +299,6 @@ static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     switch (token.type) {
     // NOTE(mattg): These are 1 character tokens
     case CSFM_TOKEN_NULL:
-        token.start = 0;
-        token.end = 0;
-        break;
     case CSFM_TOKEN_CR:
     case CSFM_TOKEN_LF:
     case CSFM_TOKEN_FORWARDSLASH:
@@ -336,29 +328,12 @@ static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
     }
     return token;
 }
-//
-// static inline int consumeToken(uint32_t *tokenizer, CSFM_Token token) {
-//     // NOTE(mattg): don't consume NULLs
-//     if (token.type == CSFM_TOKEN_NULL) {
-//         return 0;
-//     }
-//     if (CSFM_TokenArray_push(&tokenizer->array, token) != 0) {
-//         return -1;
-//     }
-//     tokenizer->position = token.end;
-//     return 0;
-// }
-//
-// static void tokenizeInternal(CSFM_Tokenizer *position, CSFM_String8Slice str) {
-//     CSFM_Token token = {0};
-//     do {
-//         token = peekToken(str, *position);
-//         if (consumeToken(tokenizer, token) == -1) {
-//             break;
-//         }
-//     } while (token.type != CSFM_TOKEN_NULL);
-//     return;
-// }
+
+static inline CSFM_Token consumeToken(CSFM_String8Slice str, uint32_t *index) {
+    CSFM_Token token = peekToken(str, *index);
+    *index = token.end;
+    return token;
+}
 
 CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size) {
     CSFM_TokenResult result = {
@@ -371,37 +346,20 @@ CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size) {
         return result;
     }
 
-    uint32_t position = 0;
+    uint32_t tokenIndex = 0;
     CSFM_Token token = {0};
     do {
-        token = peekToken(result.input, position);
+        token = consumeToken(result.input, &tokenIndex);
         if (token.type == CSFM_TOKEN_NULL) {
             break;
         }
         if (CSFM_TokenArray_push(&result.tokens, token) != 0) {
             break;
         }
-        position = token.end;
     } while (token.type != CSFM_TOKEN_NULL);
 
     return result;
 }
-
-// CSFM_Tokenizer CSFM_Tokenize(uint8_t *buf, size_t size) {
-//     CSFM_String8Slice str = {
-//         .ptr = buf,
-//         .length = size,
-//     };
-//
-//     CSFM_Tokenizer tokenizer = {0};
-//     if (CSFM_TokenArray_allocate(&tokenizer.array, size) != 0) {
-//         return tokenizer;
-//     }
-//
-//     tokenizeInternal(&tokenizer, str);
-//
-//     return tokenizer;
-// }
 
 typedef enum {
     CSFM_NODE_NULL,
@@ -458,6 +416,7 @@ void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
 void CSFM_NodeArray_reuse(CSFM_NodeArray *array);
 static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity);
 static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
+static void CSFM_NodeArray_pop(CSFM_NodeArray *array);
 CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index);
 
 int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity) {
@@ -520,7 +479,7 @@ static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity) {
 }
 
 static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node) {
-    if (array == NULL) {
+    if (array == NULL || array->buffer == NULL) {
         return -1;
     }
     if (array->length >= array->capacity) {
@@ -534,6 +493,17 @@ static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node) {
     return 0;
 }
 
+static void CSFM_NodeArray_pop(CSFM_NodeArray *array) {
+    if (array == NULL || array->buffer == NULL) {
+        return;
+    }
+    CSFM_Node stub = {0};
+    if (array->length > 0) {
+        array->buffer[array->length-1] = stub;
+        array->length--;
+    }
+}
+
 CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index) {
     if (index < array.length) {
         return array.buffer[index];
@@ -543,163 +513,157 @@ CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index) {
 }
 
 typedef struct {
-    CSFM_TokenArray tokens;
-    CSFM_NodeArray AST;
-    uint32_t token_index;
-} CSFM_Parser;
+    CSFM_String8Slice input;
+    CSFM_NodeArray tree;
+} CSFM_ParseResult;
 
-// void parseMarker(CSFM_Parser *parser, CSFM_Node *node) {
-//     CSFM_Token token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//
-//     // accept '+' OR '*' OR text.
-//     switch (token.type) {
-//     case CSFM_TOKEN_ASTERISK:
-//         // end of marker
-//         node->marker_type = CSFM_MARKER_TYPE_CLOSE;
-//         node->end = token.end;
-//         parser->token_index++;
-//         return;
-//     case CSFM_TOKEN_PLUS:
-//         node->marker_type = CSFM_MARKER_TYPE_NESTED;
-//         node->end = token.end;
-//         parser->token_index++;
-//         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//         
-//         // just get the text after the plus
-//         node->end = token.end;
-//         parser->token_index++;
-//         if (token.type != CSFM_TOKEN_TEXT) {
-//             // TODO(mattg): error handling. Something something unexpected token.
-//             return;
-//         }
-//         node->marker_text_start = token.start;
-//         node->marker_text_end = token.end;
-//         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//         break;
-//     case CSFM_TOKEN_TEXT:
-//         node->end = token.end;
-//         node->marker_text_start = token.start;
-//         node->marker_text_end = token.end;
-//         parser->token_index++;
-//         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//         break;
-//     default:
-//         node->end = token.end;
-//         parser->token_index++;
-//         // TODO(mattg): error handling. Something something unexpected token.
-//         return;
-//     }
-//     
-//     // accept number
-//     // NOTE(mattg): this would change the marker text length, but for now we don't track that.
-//
-//     // accept -
-//     // if - expect text or number
-//     // accept *
-//     if (token.type == CSFM_TOKEN_ASTERISK) {
-//         node->marker_type++;
-//         node->end = token.end;
-//         parser->token_index++;
-//         return;
-//     }
-//     // return on whitespace/newline/end of file
-//
-//     // start with basics, expect text.
-//     // assert(token.type == CSFM_TOKEN_TEXT);
-//     // node->end = token.end;
-//     // parser->token_index++;
-//
-// }
-//
-// void parseText(CSFM_Parser *parser, CSFM_Node *node) {
-//     CSFM_Token token = {0};
-//     int endParse = 0;
-//     do {
-//         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//         switch (token.type) {
-//         case CSFM_TOKEN_NULL:
-//         case CSFM_TOKEN_CR:
-//         case CSFM_TOKEN_LF:
-//         case CSFM_TOKEN_BACKSLASH:
-//             endParse = 1;
-//             break;
-//         default:
-//             node->end = token.end;
-//             parser->token_index++;
-//         }
-//     } while (!endParse);
-// }
-//
-// void parseInternal(CSFM_Parser *parser, CSFM_String8Slice str) {
-//     CSFM_Token token = {0};
-//     parser->token_index = 0;
-//     // CSFM_Node prev_node = {0};
-//     do {
-//         token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//
-//         CSFM_Node node = {
-//             .start = token.start,
-//             .end = token.end,
-//         };
-//         switch (token.type) {
-//         case CSFM_TOKEN_BACKSLASH:
-//             node.type = CSFM_NODE_MARKER;
-//             assert(node.marker_type == CSFM_MARKER_TYPE_NORMAL);
-//             parser->token_index++;
-//             parseMarker(parser, &node);
-//             break;
-//         case CSFM_TOKEN_WS:
-//             node.type = CSFM_NODE_WHITESPACE;
-//             parser->token_index++;
-//             break;
-//         case CSFM_TOKEN_CR:
-//             node.type = CSFM_NODE_NEWLINE;
-//             parser->token_index++;
-//             
-//             token = CSFM_TokenArray_get(parser->tokens, parser->token_index);
-//             if (token.type == CSFM_TOKEN_LF) {
-//                 node.end = token.end;
-//                 parser->token_index++;
-//             }
-//             break;
-//         case CSFM_TOKEN_LF:
-//             node.type = CSFM_NODE_NEWLINE;
-//             parser->token_index++;
-//             break;
-//         case CSFM_TOKEN_NULL:
-//             node.type = CSFM_NODE_NULL;
-//             break;
-//         default:
-//             node.type = CSFM_NODE_TEXT;
-//             parseText(parser, &node);
-//             break;
-//         }
-//         assert(CSFM_NodeArray_push(&parser->AST, node) == 0);
-//     } while (parser->token_index < parser->tokens.length && token.type != CSFM_TOKEN_NULL);
-//     return;
-// }
-//
-// CSFM_Parser CSFM_Parse(uint8_t *buf, size_t size) {
-//     CSFM_Parser parser = {0};
-//     CSFM_String8Slice str = {
-//         .ptr = buf,
-//         .length = size,
-//     };
-//
-//     CSFM_Tokenizer tokenizer = {0};
-//     if (CSFM_TokenArray_allocate(&tokenizer.array, size) != 0) {
-//         return parser;
-//     }
-//
-//     tokenizeInternal(&tokenizer, str);
-//     parser.tokens = tokenizer.array;
-//
-//     if (CSFM_NodeArray_allocate(&parser.AST, size) != 0) {
-//         return parser;
-//     }
-//
-//     parseInternal(&parser, str);
-//     return parser;
-// }
+void parseMarker(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *token, CSFM_Node *node) {
+    CSFM_Token currToken = peekToken(input, *tokenIndex);
+
+    // accept '+' OR '*' OR text.
+    switch (currToken.type) {
+    case CSFM_TOKEN_ASTERISK:
+        // end of marker
+        node->marker_type = CSFM_MARKER_TYPE_CLOSE;
+        node->end = currToken.end;
+        *tokenIndex = currToken.end;
+        *token = currToken;
+        return;
+    case CSFM_TOKEN_PLUS:
+        node->marker_type = CSFM_MARKER_TYPE_NESTED;
+        node->end = currToken.end;
+        *tokenIndex = currToken.end;
+        currToken = peekToken(input, *tokenIndex);
+        
+        // just get the text after the plus
+        node->end = currToken.end;
+        if (currToken.type != CSFM_TOKEN_TEXT) {
+            // TODO(mattg): error handling. Something something unexpected token.
+            return;
+        }
+        node->marker_text_start = currToken.start;
+        node->marker_text_end = currToken.end;
+        *tokenIndex = currToken.end;
+        *token = currToken;
+        currToken = peekToken(input, *tokenIndex);
+        break;
+    case CSFM_TOKEN_TEXT:
+        node->end = currToken.end;
+        node->marker_text_start = currToken.start;
+        node->marker_text_end = currToken.end;
+        *tokenIndex = currToken.end;
+        *token = currToken;
+        currToken = peekToken(input, *tokenIndex);
+        break;
+    default:
+        node->end = currToken.start;
+        // TODO(mattg): error handling. Something something unexpected token.
+        return;
+    }
+    
+    // accept number
+    // NOTE(mattg): this would change the marker text length, but for now we don't track that.
+
+    // accept -
+    // if - expect text or number
+    // accept *
+    if (currToken.type == CSFM_TOKEN_ASTERISK) {
+        node->marker_type++;
+        node->end = currToken.end;
+        *tokenIndex = currToken.end;
+        *token = currToken;
+        return;
+    }
+    // return on whitespace/newline/end of file
+
+    // start with basics, expect text.
+    // assert(token.type == CSFM_TOKEN_TEXT);
+    // node->end = token.end;
+    // parser->token_index++;
+
+}
+
+void parseText(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *token, CSFM_Node *node) {
+    CSFM_Token currToken = {0};
+    int endParse = 0;
+    while (!endParse) {
+        currToken = peekToken(input, *tokenIndex);
+        switch (token->type) {
+        case CSFM_TOKEN_NULL:
+        case CSFM_TOKEN_CR:
+        case CSFM_TOKEN_LF:
+        case CSFM_TOKEN_BACKSLASH:
+            endParse = 1;
+            break;
+        default:
+            node->end = token->end;
+            *tokenIndex = token->end;
+            *token = currToken;
+        }
+    }
+}
+
+CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size) {
+    CSFM_ParseResult result = {
+        .input = {
+            .ptr = buf,
+            .length = size,
+        },
+    };
+    if (CSFM_NodeArray_allocate(&result.tree, size) != 0) {
+        return result;
+    }
+
+    uint32_t tokenIndex = 0;
+    CSFM_Token token = {0};
+    CSFM_Token prevToken = {0};
+    CSFM_Node prevNode = {0};
+    do {
+        token = consumeToken(result.input, &tokenIndex);
+
+        CSFM_Node node = {
+            .start = token.start,
+            .end = token.end,
+        };
+
+        switch (token.type) {
+        case CSFM_TOKEN_NULL:
+            node.type = CSFM_NODE_NULL;
+            break;
+        case CSFM_TOKEN_BACKSLASH:
+            node.type = CSFM_NODE_MARKER;
+            assert(node.marker_type == CSFM_MARKER_TYPE_NORMAL);
+            parseMarker(result.input, &tokenIndex, &token, &node);
+            break;
+        case CSFM_TOKEN_WS:
+            node.type = CSFM_NODE_WHITESPACE;
+            break;
+        case CSFM_TOKEN_CR:
+            node.type = CSFM_NODE_NEWLINE;
+            break;
+        case CSFM_TOKEN_LF:
+            node.type = CSFM_NODE_NEWLINE;
+            if (prevToken.type == CSFM_TOKEN_CR) {
+                node.start = prevNode.start;
+                // NOTE(mattg): Remove the last element (it was a CR), replace it with 1 newline node.
+                CSFM_NodeArray_pop(&result.tree);
+            }
+            break;
+        default:
+            node.type = CSFM_NODE_TEXT;
+            parseText(result.input, &tokenIndex, &token, &node);
+            break;
+        }
+
+        if (CSFM_NodeArray_push(&result.tree, node) != 0) {
+            return result;
+        }
+        prevToken = token;
+        prevNode = node;
+    } while (token.type != CSFM_TOKEN_NULL);
+
+
+    return result;
+}
 
 #endif // CSFM

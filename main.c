@@ -37,8 +37,8 @@ void printTimeData(Timer start, Timer end, size_t size) {
 int main(void) {
     // const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
-    // const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
-    const char *path = "./test.usfm";
+    const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
+    // const char *path = "./test.usfm";
 
     printf("Reading file:\n");
     Timer start = {0};
@@ -75,36 +75,44 @@ int main(void) {
     printf("\nTokenizing file:\n");
     getTime(&start);
 
-    CSFM_TokenResult result = CSFM_TokenizeAll((uint8_t *)filebuf, size);
-    // CSFM_String8Slice str = {.ptr = filebuf, .length = size};
+    CSFM_TokenResult tokenResult = CSFM_TokenizeAll((uint8_t *)filebuf, size);
 
     getTime(&end);
     
-    for (uint32_t i = 0; i < result.tokens.length; i++) {
-        CSFM_Token token = CSFM_TokenArray_get(result.tokens, i);
-        debugPrintToken(token, result.input);
-    }
-    printf("\n# tokens: %d\n", result.tokens.length);
+    // for (uint32_t i = 0; i < tokenResult.tokens.length; i++) {
+    //     CSFM_Token token = CSFM_TokenArray_get(tokenResult.tokens, i);
+    //     debugPrintToken(token, tokenResult.input);
+    // }
+    uint32_t numTokens = tokenResult.tokens.length;
+    printf("\n# tokens: %d\n", numTokens);
     
     printTimeData(start, end, size);
 
-    // printf("\nParsing file:\n");
-    // getTime(&start);
-    //
-    // CSFM_Parser parser = CSFM_Parse((uint8_t *)filebuf, size);
-    //
-    // getTime(&end);
-    //
-    // // for (uint32_t i = 0; i < parser.AST.length; i++) {
-    // //     CSFM_Node node = CSFM_NodeArray_get(parser.AST, i);
-    // //     debugPrintNode(node, str);
-    // // }
-    // printf("\n# nodes: %d\n", parser.AST.length);
-    // printTimeData(start, end, size);
-    //
-    // CSFM_NodeArray_deallocate(&parser.AST);
-    // CSFM_TokenArray_deallocate(&parser.tokens);
-    CSFM_TokenArray_deallocate(&result.tokens);
+    printf("\nParsing file:\n");
+    getTime(&start);
+
+    CSFM_ParseResult parseResult = CSFM_Parse((uint8_t *)filebuf, size);
+
+    getTime(&end);
+
+    // for (uint32_t i = 0; i < parseResult.tree.length; i++) {
+    //     CSFM_Node node = CSFM_NodeArray_get(parseResult.tree, i);
+    //     debugPrintNode(node, parseResult.input);
+    // }
+    uint32_t numNodes = parseResult.tree.length;
+    printf("\n# nodes: %d\n", numNodes);
+    printTimeData(start, end, size);
+
+    float tokensPerByte = (float)numTokens / (float)size;
+    float nodesPerByte = (float)numNodes / (float)size;
+    float nodesPerToken = (float)numNodes / (float)numTokens;
+    printf(
+        "\n%.4f tokens/byte, %.4f nodes/byte, %.4f nodes/token\n",
+        tokensPerByte, nodesPerByte, nodesPerToken
+    );
+
+    CSFM_NodeArray_deallocate(&parseResult.tree);
+    CSFM_TokenArray_deallocate(&tokenResult.tokens);
     free(filebuf);
 
     if (close(fd) == -1) {
