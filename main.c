@@ -35,10 +35,10 @@ void printTimeData(Timer start, Timer end, size_t size) {
 }
 
 int main(void) {
-    const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
+    // const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
-    // const char *path = "./test.usfm";
+    const char *path = "./test.usfm";
 
     printf("Reading file:\n");
     Timer start = {0};
@@ -75,36 +75,36 @@ int main(void) {
     printf("\nTokenizing file:\n");
     getTime(&start);
 
-    CSFM_Tokenizer tokenizer = CSFM_Tokenize((uint8_t *)filebuf, size);
+    CSFM_TokenResult result = CSFM_TokenizeAll((uint8_t *)filebuf, size);
     // CSFM_String8Slice str = {.ptr = filebuf, .length = size};
 
     getTime(&end);
     
-    // for (uint32_t i = 0; i < tokenizer.array.length; i++) {
-    //     CSFM_Token token = CSFM_TokenArray_get(tokenizer.array, i);
-    //     debugPrintToken(token, str);
-    // }
-    printf("# tokens: %d\n", tokenizer.array.length);
+    for (uint32_t i = 0; i < result.tokens.length; i++) {
+        CSFM_Token token = CSFM_TokenArray_get(result.tokens, i);
+        debugPrintToken(token, result.input);
+    }
+    printf("\n# tokens: %d\n", result.tokens.length);
     
     printTimeData(start, end, size);
 
-    printf("\nParsing file:\n");
-    getTime(&start);
-
-    CSFM_Parser parser = CSFM_Parse((uint8_t *)filebuf, size);
-
-    getTime(&end);
-
-    // for (uint32_t i = 0; i < parser.AST.length; i++) {
-    //     CSFM_Node node = CSFM_NodeArray_get(parser.AST, i);
-    //     debugPrintNode(node, str);
-    // }
-    printf("# nodes: %d\n", parser.AST.length);
-    printTimeData(start, end, size);
-
-    CSFM_NodeArray_deallocate(&parser.AST);
-    CSFM_TokenArray_deallocate(&parser.tokens);
-    CSFM_TokenArray_deallocate(&tokenizer.array);
+    // printf("\nParsing file:\n");
+    // getTime(&start);
+    //
+    // CSFM_Parser parser = CSFM_Parse((uint8_t *)filebuf, size);
+    //
+    // getTime(&end);
+    //
+    // // for (uint32_t i = 0; i < parser.AST.length; i++) {
+    // //     CSFM_Node node = CSFM_NodeArray_get(parser.AST, i);
+    // //     debugPrintNode(node, str);
+    // // }
+    // printf("\n# nodes: %d\n", parser.AST.length);
+    // printTimeData(start, end, size);
+    //
+    // CSFM_NodeArray_deallocate(&parser.AST);
+    // CSFM_TokenArray_deallocate(&parser.tokens);
+    CSFM_TokenArray_deallocate(&result.tokens);
     free(filebuf);
 
     if (close(fd) == -1) {
