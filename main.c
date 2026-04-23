@@ -35,9 +35,9 @@ void printTimeData(Timer start, Timer end, size_t size) {
 }
 
 int main(void) {
-    // const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
+    const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
-    const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
+    // const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
     // const char *path = "./test.usfm";
 
     printf("Reading file:\n");

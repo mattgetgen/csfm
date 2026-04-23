@@ -497,9 +497,7 @@ static void CSFM_NodeArray_pop(CSFM_NodeArray *array) {
     if (array == NULL || array->buffer == NULL) {
         return;
     }
-    CSFM_Node stub = {0};
     if (array->length > 0) {
-        array->buffer[array->length-1] = stub;
         array->length--;
     }
 }
