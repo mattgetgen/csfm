@@ -8,6 +8,7 @@
 #include <time.h>
 #include <x86intrin.h>
 
+#define CSFM_IMPLEMENTATION
 #include "csfm.h"
 
 typedef struct {
@@ -81,7 +82,7 @@ int main(void) {
     
     // for (uint32_t i = 0; i < tokenResult.tokens.length; i++) {
     //     CSFM_Token token = CSFM_TokenArray_get(tokenResult.tokens, i);
-    //     debugPrintToken(token, tokenResult.input);
+    //     CSFM_Token_print(token, tokenResult.input);
     // }
     uint32_t numTokens = tokenResult.tokens.length;
     printf("\n# tokens: %d\n", numTokens);
@@ -97,7 +98,7 @@ int main(void) {
 
     // for (uint32_t i = 0; i < parseResult.tree.length; i++) {
     //     CSFM_Node node = CSFM_NodeArray_get(parseResult.tree, i);
-    //     debugPrintNode(node, parseResult.input);
+    //     CSFM_Node_print(node, parseResult.input);
     // }
     uint32_t numNodes = parseResult.tree.length;
     printf("\n# nodes: %d\n", numNodes);

@@ -39,8 +39,8 @@
      SOFTWARE.
  */
 
-#ifndef CSFM
-#define CSFM
+#ifndef CSFM_HEADER
+#define CSFM_HEADER
 
 #define CSFM_VERSION_MAJOR 0
 #define CSFM_VERSION_MINOR 0
@@ -88,25 +88,6 @@ typedef struct {
     CSFM_TokenType type;
 } CSFM_Token;
 
-// NOTE(mattg): For testing purposes only
-void debugPrintToken(CSFM_Token token, CSFM_String8Slice str) {
-    uint32_t length = token.end - token.start;
-    char *string = (char *)&str.ptr[token.start];
-    switch (token.type) {
-    case CSFM_TOKEN_NULL:
-        printf("[NULL]\n");
-        break;
-    case CSFM_TOKEN_CR:
-        printf("[CR]\n");
-        break;
-    case CSFM_TOKEN_LF:
-        printf("[LF]\n");
-        break;
-    default:
-        printf("[%*.*s]", length, length, string);
-    }
-}
-
 typedef struct {
     CSFM_Token *buffer;
     uint32_t length;
@@ -125,6 +106,208 @@ typedef struct {
     CSFM_TokenArray tokens;
 } CSFM_TokenResult;
 
+CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size);
+
+typedef enum {
+    CSFM_MARKER_id,
+    CSFM_MARKER_usfm,
+    CSFM_MARKER_ide,
+    CSFM_MARKER_sts,
+    CSFM_MARKER_rem,
+    CSFM_MARKER_h,
+    CSFM_MARKER_toc,
+    CSFM_MARKER_toca,
+    CSFM_MARKER_imt,
+    CSFM_MARKER_is,
+    CSFM_MARKER_ip,
+    CSFM_MARKER_ipi,
+    CSFM_MARKER_im,
+    CSFM_MARKER_imi,
+    CSFM_MARKER_ipq,
+    CSFM_MARKER_imq,
+    CSFM_MARKER_iq,
+    CSFM_MARKER_ib,
+    CSFM_MARKER_ili,
+    CSFM_MARKER_iot,
+    CSFM_MARKER_io,
+    CSFM_MARKER_ior,
+    CSFM_MARKER_iqt,
+    CSFM_MARKER_iex,
+    CSFM_MARKER_imte,
+    CSFM_MARKER_ie,
+    CSFM_MARKER_mt,
+    CSFM_MARKER_mte,
+    CSFM_MARKER_ms,
+    CSFM_MARKER_mr,
+    CSFM_MARKER_s,
+    CSFM_MARKER_sr,
+    CSFM_MARKER_r,
+    CSFM_MARKER_rq,
+    CSFM_MARKER_d,
+    CSFM_MARKER_sp,
+    CSFM_MARKER_sd,
+    CSFM_MARKER_c,
+    CSFM_MARKER_ca,
+    CSFM_MARKER_cl,
+    CSFM_MARKER_cp,
+    CSFM_MARKER_cd,
+    CSFM_MARKER_v,
+    CSFM_MARKER_va,
+    CSFM_MARKER_vp,
+    CSFM_MARKER_p,
+    CSFM_MARKER_m,
+    CSFM_MARKER_po,
+    CSFM_MARKER_pr,
+    CSFM_MARKER_cls,
+    CSFM_MARKER_pmo,
+    CSFM_MARKER_pm,
+    CSFM_MARKER_pmc,
+    CSFM_MARKER_pmr,
+    CSFM_MARKER_pi,
+    CSFM_MARKER_mi,
+    CSFM_MARKER_nb,
+    CSFM_MARKER_pc,
+    CSFM_MARKER_ph,
+    CSFM_MARKER_b,
+    CSFM_MARKER_q,
+    CSFM_MARKER_qr,
+    CSFM_MARKER_qc,
+    CSFM_MARKER_qs,
+    CSFM_MARKER_qa,
+    CSFM_MARKER_qac,
+    CSFM_MARKER_qm,
+    CSFM_MARKER_qd,
+    CSFM_MARKER_lh,
+    CSFM_MARKER_li,
+    CSFM_MARKER_lf,
+    CSFM_MARKER_lim,
+    CSFM_MARKER_litl,
+    CSFM_MARKER_lik,
+    CSFM_MARKER_liv,
+    CSFM_MARKER_tr,
+    CSFM_MARKER_th,
+    CSFM_MARKER_thr,
+    CSFM_MARKER_tc,
+    CSFM_MARKER_tcr,
+    CSFM_MARKER_f,
+    CSFM_MARKER_fe,
+    CSFM_MARKER_fr,
+    CSFM_MARKER_fq,
+    CSFM_MARKER_fqa,
+    CSFM_MARKER_fk,
+    CSFM_MARKER_fl,
+    CSFM_MARKER_fw,
+    CSFM_MARKER_fp,
+    CSFM_MARKER_fv,
+    CSFM_MARKER_ft,
+    CSFM_MARKER_fdc,
+    CSFM_MARKER_fm,
+    CSFM_MARKER_x,
+    CSFM_MARKER_xo,
+    CSFM_MARKER_xk,
+    CSFM_MARKER_xq,
+    CSFM_MARKER_xt,
+    CSFM_MARKER_xta,
+    CSFM_MARKER_xop,
+    CSFM_MARKER_xot,
+    CSFM_MARKER_xnt,
+    CSFM_MARKER_xdc,
+    CSFM_MARKER_add,
+    CSFM_MARKER_bk,
+    CSFM_MARKER_dc,
+    CSFM_MARKER_k,
+    CSFM_MARKER_lit,
+    CSFM_MARKER_nd,
+    CSFM_MARKER_ord,
+    CSFM_MARKER_pn,
+    CSFM_MARKER_png,
+    CSFM_MARKER_addpn,
+    CSFM_MARKER_qt,
+    CSFM_MARKER_sig,
+    CSFM_MARKER_sls,
+    CSFM_MARKER_tl,
+    CSFM_MARKER_wj,
+    CSFM_MARKER_em,
+    CSFM_MARKER_bd,
+    CSFM_MARKER_it,
+    CSFM_MARKER_bdit,
+    CSFM_MARKER_no,
+    CSFM_MARKER_sc,
+    CSFM_MARKER_sup,
+    CSFM_MARKER_pb,
+    CSFM_MARKER_fig,
+    CSFM_MARKER_ndx,
+    CSFM_MARKER_rb,
+    CSFM_MARKER_pro,
+    CSFM_MARKER_w,
+    CSFM_MARKER_wg,
+    CSFM_MARKER_wh,
+    CSFM_MARKER_wa,
+    CSFM_MARKER_jmp,
+    CSFM_MARKER_qt_se, // -s and -e
+    CSFM_MARKER_ts_se, // -s and -e
+    CSFM_MARKER_ef,
+    CSFM_MARKER_ex,
+    CSFM_MARKER_esb,
+    CSFM_MARKER_esbe,
+    CSFM_MARKER_cat,
+    CSFM_MARKER_periph,
+} CSFM_Marker;
+
+typedef enum {
+    CSFM_NODE_NULL,
+    CSFM_NODE_MARKER,
+    CSFM_NODE_TEXT,
+    CSFM_NODE_WHITESPACE,
+    CSFM_NODE_NEWLINE,
+} CSFM_NodeType;
+
+typedef enum {
+    CSFM_MARKER_TYPE_NORMAL,
+    CSFM_MARKER_TYPE_CLOSE,
+    CSFM_MARKER_TYPE_NESTED,
+    CSFM_MARKER_TYPE_NESTED_CLOSE,
+} CSFM_MarkerType;
+
+typedef struct {
+    uint32_t start;
+    uint32_t end;
+    uint32_t line;
+    uint32_t column;
+    uint32_t first_child;
+    uint32_t next;
+    CSFM_NodeType type;
+    CSFM_MarkerType marker_type;
+    uint32_t marker_text_start;
+    uint32_t marker_text_end;
+} CSFM_Node;
+
+typedef struct {
+    CSFM_Node *buffer;
+    uint32_t length;
+    uint32_t capacity;
+} CSFM_NodeArray;
+
+int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity);
+void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
+void CSFM_NodeArray_reuse(CSFM_NodeArray *array);
+static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity);
+static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
+static void CSFM_NodeArray_pop(CSFM_NodeArray *array);
+CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index);
+
+typedef struct {
+    CSFM_String8Slice input;
+    CSFM_NodeArray tree;
+} CSFM_ParseResult;
+
+CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size);
+
+#endif // CSFM_HEADER
+
+#ifdef CSFM_IMPLEMENTATION
+#define CSFM_IMPLEMENTATION
+
 static inline char CSFM_String8Slice_get(CSFM_String8Slice slice, uint32_t index) {
     if (index >= slice.length) {
         // NOTE(mattg): This should be at the end of the slice
@@ -132,6 +315,25 @@ static inline char CSFM_String8Slice_get(CSFM_String8Slice slice, uint32_t index
         return '\0';
     }
     return slice.ptr[index];
+}
+
+// NOTE(mattg): For testing purposes only
+void CSFM_Token_print(CSFM_Token token, CSFM_String8Slice str) {
+    uint32_t length = token.end - token.start;
+    char *string = (char *)&str.ptr[token.start];
+    switch (token.type) {
+    case CSFM_TOKEN_NULL:
+        printf("[NULL]\n");
+        break;
+    case CSFM_TOKEN_CR:
+        printf("[CR]\n");
+        break;
+    case CSFM_TOKEN_LF:
+        printf("[LF]\n");
+        break;
+    default:
+        printf("[%*.*s]", length, length, string);
+    }
 }
 
 int CSFM_TokenArray_allocate(CSFM_TokenArray *array, uint32_t capacity) {
@@ -361,182 +563,8 @@ CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size) {
     return result;
 }
 
-typedef enum {
-    CSFM_MARKER_id,
-    CSFM_MARKER_usfm,
-    CSFM_MARKER_ide,
-    CSFM_MARKER_sts,
-    CSFM_MARKER_rem,
-    CSFM_MARKER_h,
-    CSFM_MARKER_toc,
-    CSFM_MARKER_toca,
-    CSFM_MARKER_imt,
-    CSFM_MARKER_is,
-    CSFM_MARKER_ip,
-    CSFM_MARKER_ipi,
-    CSFM_MARKER_im,
-    CSFM_MARKER_imi,
-    CSFM_MARKER_ipq,
-    CSFM_MARKER_imq,
-    CSFM_MARKER_iq,
-    CSFM_MARKER_ib,
-    CSFM_MARKER_ili,
-    CSFM_MARKER_iot,
-    CSFM_MARKER_io,
-    CSFM_MARKER_ior,
-    CSFM_MARKER_iqt,
-    CSFM_MARKER_iex,
-    CSFM_MARKER_imte,
-    CSFM_MARKER_ie,
-    CSFM_MARKER_mt,
-    CSFM_MARKER_mte,
-    CSFM_MARKER_ms,
-    CSFM_MARKER_mr,
-    CSFM_MARKER_s,
-    CSFM_MARKER_sr,
-    CSFM_MARKER_r,
-    CSFM_MARKER_rq,
-    CSFM_MARKER_d,
-    CSFM_MARKER_sp,
-    CSFM_MARKER_sd,
-    CSFM_MARKER_c,
-    CSFM_MARKER_ca,
-    CSFM_MARKER_cl,
-    CSFM_MARKER_cp,
-    CSFM_MARKER_cd,
-    CSFM_MARKER_v,
-    CSFM_MARKER_va,
-    CSFM_MARKER_vp,
-    CSFM_MARKER_p,
-    CSFM_MARKER_m,
-    CSFM_MARKER_po,
-    CSFM_MARKER_pr,
-    CSFM_MARKER_cls,
-    CSFM_MARKER_pmo,
-    CSFM_MARKER_pm,
-    CSFM_MARKER_pmc,
-    CSFM_MARKER_pmr,
-    CSFM_MARKER_pi,
-    CSFM_MARKER_mi,
-    CSFM_MARKER_nb,
-    CSFM_MARKER_pc,
-    CSFM_MARKER_ph,
-    CSFM_MARKER_b,
-    CSFM_MARKER_q,
-    CSFM_MARKER_qr,
-    CSFM_MARKER_qc,
-    CSFM_MARKER_qs,
-    CSFM_MARKER_qa,
-    CSFM_MARKER_qac,
-    CSFM_MARKER_qm,
-    CSFM_MARKER_qd,
-    CSFM_MARKER_lh,
-    CSFM_MARKER_li,
-    CSFM_MARKER_lf,
-    CSFM_MARKER_lim,
-    CSFM_MARKER_litl,
-    CSFM_MARKER_lik,
-    CSFM_MARKER_liv,
-    CSFM_MARKER_tr,
-    CSFM_MARKER_th,
-    CSFM_MARKER_thr,
-    CSFM_MARKER_tc,
-    CSFM_MARKER_tcr,
-    CSFM_MARKER_f,
-    CSFM_MARKER_fe,
-    CSFM_MARKER_fr,
-    CSFM_MARKER_fq,
-    CSFM_MARKER_fqa,
-    CSFM_MARKER_fk,
-    CSFM_MARKER_fl,
-    CSFM_MARKER_fw,
-    CSFM_MARKER_fp,
-    CSFM_MARKER_fv,
-    CSFM_MARKER_ft,
-    CSFM_MARKER_fdc,
-    CSFM_MARKER_fm,
-    CSFM_MARKER_x,
-    CSFM_MARKER_xo,
-    CSFM_MARKER_xk,
-    CSFM_MARKER_xq,
-    CSFM_MARKER_xt,
-    CSFM_MARKER_xta,
-    CSFM_MARKER_xop,
-    CSFM_MARKER_xot,
-    CSFM_MARKER_xnt,
-    CSFM_MARKER_xdc,
-    CSFM_MARKER_add,
-    CSFM_MARKER_bk,
-    CSFM_MARKER_dc,
-    CSFM_MARKER_k,
-    CSFM_MARKER_lit,
-    CSFM_MARKER_nd,
-    CSFM_MARKER_ord,
-    CSFM_MARKER_pn,
-    CSFM_MARKER_png,
-    CSFM_MARKER_addpn,
-    CSFM_MARKER_qt,
-    CSFM_MARKER_sig,
-    CSFM_MARKER_sls,
-    CSFM_MARKER_tl,
-    CSFM_MARKER_wj,
-    CSFM_MARKER_em,
-    CSFM_MARKER_bd,
-    CSFM_MARKER_it,
-    CSFM_MARKER_bdit,
-    CSFM_MARKER_no,
-    CSFM_MARKER_sc,
-    CSFM_MARKER_sup,
-    CSFM_MARKER_pb,
-    CSFM_MARKER_fig,
-    CSFM_MARKER_ndx,
-    CSFM_MARKER_rb,
-    CSFM_MARKER_pro,
-    CSFM_MARKER_w,
-    CSFM_MARKER_wg,
-    CSFM_MARKER_wh,
-    CSFM_MARKER_wa,
-    CSFM_MARKER_jmp,
-    CSFM_MARKER_qt_se, // -s and -e
-    CSFM_MARKER_ts_se, // -s and -e
-    CSFM_MARKER_ef,
-    CSFM_MARKER_ex,
-    CSFM_MARKER_esb,
-    CSFM_MARKER_esbe,
-    CSFM_MARKER_cat,
-    CSFM_MARKER_periph,
-} CSFM_Marker;
-
-typedef enum {
-    CSFM_NODE_NULL,
-    CSFM_NODE_MARKER,
-    CSFM_NODE_TEXT,
-    CSFM_NODE_WHITESPACE,
-    CSFM_NODE_NEWLINE,
-} CSFM_NodeType;
-
-typedef enum {
-    CSFM_MARKER_TYPE_NORMAL,
-    CSFM_MARKER_TYPE_CLOSE,
-    CSFM_MARKER_TYPE_NESTED,
-    CSFM_MARKER_TYPE_NESTED_CLOSE,
-} CSFM_MarkerType;
-
-typedef struct {
-    uint32_t start;
-    uint32_t end;
-    uint32_t line;
-    uint32_t column;
-    uint32_t first_child;
-    uint32_t next;
-    CSFM_NodeType type;
-    CSFM_MarkerType marker_type;
-    uint32_t marker_text_start;
-    uint32_t marker_text_end;
-} CSFM_Node;
-
 // NOTE(mattg): For testing purposes only
-void debugPrintNode(CSFM_Node node, CSFM_String8Slice str) {
+void CSFM_Node_print(CSFM_Node node, CSFM_String8Slice str) {
     uint32_t length = node.end - node.start;
     char *string = (char *)&str.ptr[node.start];
     switch (node.type) {
@@ -550,20 +578,6 @@ void debugPrintNode(CSFM_Node node, CSFM_String8Slice str) {
         printf("[%*.*s]", length, length, string);
     }
 }
-
-typedef struct {
-    CSFM_Node *buffer;
-    uint32_t length;
-    uint32_t capacity;
-} CSFM_NodeArray;
-
-int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity);
-void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
-void CSFM_NodeArray_reuse(CSFM_NodeArray *array);
-static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity);
-static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
-static void CSFM_NodeArray_pop(CSFM_NodeArray *array);
-CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index);
 
 int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity) {
     if (array == NULL) {
@@ -655,11 +669,6 @@ CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index) {
     CSFM_Node stub = {0};
     return stub;
 }
-
-typedef struct {
-    CSFM_String8Slice input;
-    CSFM_NodeArray tree;
-} CSFM_ParseResult;
 
 void parseMarker(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *token, CSFM_Node *node) {
     CSFM_Token currToken = peekToken(input, *tokenIndex);
@@ -810,4 +819,4 @@ CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size) {
     return result;
 }
 
-#endif // CSFM
+#endif // CSFM_IMPLEMENTATION
