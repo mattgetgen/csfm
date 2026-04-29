@@ -52,6 +52,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+typedef enum {
+    CSFM_ERROR_SUCCESS,
+    CSFM_ERROR_OUT_OF_MEMORY,
+} CSFM_ErrorType;
 
 typedef struct {
     uint8_t *ptr;
@@ -94,11 +100,13 @@ typedef struct {
     uint32_t capacity;
 } CSFM_TokenArray;
 
-int CSFM_TokenArray_allocate(CSFM_TokenArray *array, uint32_t capacity);
+#define CSFM_TOKEN_ARRAY_CAPACITY_MAX UINT32_MAX / sizeof(CSFM_Token)
+
+CSFM_ErrorType CSFM_TokenArray_allocate(CSFM_TokenArray *array, uint32_t capacity);
 void CSFM_TokenArray_deallocate(CSFM_TokenArray *array);
 void CSFM_TokenArray_reuse(CSFM_TokenArray *array);
-static int CSFM_TokenArray_resize(CSFM_TokenArray *array, uint32_t newCapacity);
-static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token);
+static CSFM_ErrorType CSFM_TokenArray_resize(CSFM_TokenArray *array, uint32_t newCapacity);
+static CSFM_ErrorType CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token);
 CSFM_Token CSFM_TokenArray_get(CSFM_TokenArray array, uint32_t index);
 
 typedef struct {
@@ -106,7 +114,7 @@ typedef struct {
     CSFM_TokenArray tokens;
 } CSFM_TokenResult;
 
-CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size);
+CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, uint32_t size);
 
 typedef enum {
     CSFM_MARKER_id,
@@ -288,11 +296,13 @@ typedef struct {
     uint32_t capacity;
 } CSFM_NodeArray;
 
-int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity);
+#define CSFM_NODE_ARRAY_CAPACITY_MAX UINT32_MAX / sizeof(CSFM_Node)
+
+CSFM_ErrorType CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity);
 void CSFM_NodeArray_deallocate(CSFM_NodeArray *array);
 void CSFM_NodeArray_reuse(CSFM_NodeArray *array);
-static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity);
-static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
+static CSFM_ErrorType CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity);
+static CSFM_ErrorType CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node);
 static void CSFM_NodeArray_pop(CSFM_NodeArray *array);
 CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index);
 
@@ -301,7 +311,7 @@ typedef struct {
     CSFM_NodeArray tree;
 } CSFM_ParseResult;
 
-CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size);
+CSFM_ParseResult CSFM_Parse(uint8_t *buf, uint32_t size);
 
 #endif // CSFM_HEADER
 
@@ -336,22 +346,31 @@ void CSFM_Token_print(CSFM_Token token, CSFM_String8Slice str) {
     }
 }
 
-int CSFM_TokenArray_allocate(CSFM_TokenArray *array, uint32_t capacity) {
+CSFM_ErrorType CSFM_TokenArray_allocate(CSFM_TokenArray *array, uint32_t capacity) {
     if (array == NULL) {
-        return -1;
+        return CSFM_ERROR_SUCCESS;
     }
-    size_t size = sizeof(CSFM_Token) * capacity;
+    capacity = capacity <= CSFM_TOKEN_ARRAY_CAPACITY_MAX ? capacity : CSFM_TOKEN_ARRAY_CAPACITY_MAX;
+
+    if (capacity == 0) {
+        array->buffer = NULL;
+        array->capacity = 0;
+        array->length = 0;
+        return CSFM_ERROR_SUCCESS;
+    }
+
+    uint32_t size = sizeof(CSFM_Token) * capacity;
     array->buffer = malloc(size);
     if (array->buffer == NULL) {
         array->capacity = 0;
         array->length = 0;
-        return -1;
+        return CSFM_ERROR_OUT_OF_MEMORY;
     }
     // TODO(mattg): look into what secure memset is, use it if I should
     memset(array->buffer, 0, size);
     array->capacity = capacity;
     array->length = 0;
-    return 0;
+    return CSFM_ERROR_SUCCESS;
 }
 
 void CSFM_TokenArray_deallocate(CSFM_TokenArray *array) {
@@ -371,48 +390,55 @@ void CSFM_TokenArray_reuse(CSFM_TokenArray *array) {
         return;
     }
     if (array->buffer != NULL) {
-        size_t size = sizeof(CSFM_Token) * array->capacity;
+        uint32_t size = sizeof(CSFM_Token) * array->capacity;
         memset(array->buffer, 0, size);
     }
     array->length = 0;
 }
 
-static int CSFM_TokenArray_resize(CSFM_TokenArray *array, uint32_t newCapacity) {
-    if (array == NULL || newCapacity < array->length) {
-        return -1;
+static CSFM_ErrorType CSFM_TokenArray_resize(CSFM_TokenArray *array, uint32_t newCapacity) {
+    if (array == NULL || newCapacity <= array->capacity) {
+        return CSFM_ERROR_SUCCESS;
     }
-    size_t newSize = sizeof(CSFM_Token) * newCapacity;
-    CSFM_Token *newBuffer = malloc(newSize);
-    if (newBuffer == NULL) {
-        return -1;
+    newCapacity = newCapacity <= CSFM_TOKEN_ARRAY_CAPACITY_MAX ? newCapacity : CSFM_TOKEN_ARRAY_CAPACITY_MAX;
+
+    {
+        uint32_t size = sizeof(CSFM_Token) * newCapacity;
+        CSFM_Token *newBuffer = realloc(array->buffer, size);
+        if (newBuffer == NULL) {
+            return CSFM_ERROR_OUT_OF_MEMORY;
+        }
+        array->buffer = newBuffer;
     }
-    memset(newBuffer, 0, newSize);
-    if (array->buffer != NULL) {
-        memcpy(newBuffer, array->buffer, sizeof(CSFM_Token) * array->length);
-        free(array->buffer);
+    int32_t capacityDifference = newCapacity - array->capacity;
+    int32_t addedSize = sizeof(CSFM_Token) * capacityDifference;
+    if (addedSize > 0) {
+        memset(&array->buffer[array->capacity], 0, addedSize);
     }
-    array->buffer = newBuffer;
     array->capacity = newCapacity;
-    return 0;
+
+    return CSFM_ERROR_SUCCESS;
 }
 
-static int CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token) {
-    if (array == NULL) {
-        return -1;
+static CSFM_ErrorType CSFM_TokenArray_push(CSFM_TokenArray *array, CSFM_Token token) {
+    if (array == NULL || array->buffer == NULL) {
+        return CSFM_ERROR_SUCCESS;
     }
+
     if (array->length >= array->capacity) {
-        if (CSFM_TokenArray_resize(array, array->capacity * 2) != 0) {
-            return -1;
+        CSFM_ErrorType err = CSFM_TokenArray_resize(array, array->length * 2);
+        if (err != CSFM_ERROR_SUCCESS) {
+            return err;
         }
     }
 
     array->buffer[array->length] = token;
     array->length++;
-    return 0;
+    return CSFM_ERROR_SUCCESS;
 }
 
 CSFM_Token CSFM_TokenArray_get(CSFM_TokenArray array, uint32_t index) {
-    if (index < array.length) {
+    if (index < array.length && array.buffer != NULL) {
         return array.buffer[index];
     }
     CSFM_Token stub = {0};
@@ -525,7 +551,7 @@ static inline CSFM_Token peekToken(CSFM_String8Slice str, uint32_t index) {
         type = token.type;
         do {
             type = peekTokenType(str, ++index);
-        } while (type == token.type);
+        } while (type == token.type && index < str.length);
         token.end = index;
     }
     return token;
@@ -537,14 +563,14 @@ static inline CSFM_Token consumeToken(CSFM_String8Slice str, uint32_t *index) {
     return token;
 }
 
-CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size) {
+CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, uint32_t size) {
     CSFM_TokenResult result = {
         .input = {
             .ptr = buf,
             .length = size,
         },
     };
-    if (CSFM_TokenArray_allocate(&result.tokens, size) != 0) {
+    if (CSFM_TokenArray_allocate(&result.tokens, size) != CSFM_ERROR_SUCCESS) {
         return result;
     }
 
@@ -555,10 +581,14 @@ CSFM_TokenResult CSFM_TokenizeAll(uint8_t *buf, size_t size) {
         if (token.type == CSFM_TOKEN_NULL) {
             break;
         }
-        if (CSFM_TokenArray_push(&result.tokens, token) != 0) {
+        if (CSFM_TokenArray_push(&result.tokens, token) != CSFM_ERROR_SUCCESS) {
             break;
         }
-    } while (token.type != CSFM_TOKEN_NULL);
+    } while (
+        token.type != CSFM_TOKEN_NULL &&
+        tokenIndex < result.input.length &&
+        result.tokens.length < CSFM_TOKEN_ARRAY_CAPACITY_MAX
+    );
 
     return result;
 }
@@ -579,21 +609,30 @@ void CSFM_Node_print(CSFM_Node node, CSFM_String8Slice str) {
     }
 }
 
-int CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity) {
+CSFM_ErrorType CSFM_NodeArray_allocate(CSFM_NodeArray *array, uint32_t capacity) {
     if (array == NULL) {
-        return -1;
+        return CSFM_ERROR_SUCCESS;
     }
-    size_t size = sizeof(CSFM_Node) * capacity;
+    capacity = capacity <= CSFM_NODE_ARRAY_CAPACITY_MAX ? capacity : CSFM_NODE_ARRAY_CAPACITY_MAX;
+    
+    if (capacity == 0) {
+        array->buffer = NULL;
+        array->capacity = 0;
+        array->length = 0;
+        return CSFM_ERROR_SUCCESS;
+    }
+
+    uint32_t size = sizeof(CSFM_Node) * capacity;
     array->buffer = malloc(size);
     if (array->buffer == NULL) {
         array->capacity = 0;
         array->length = 0;
-        return -1;
+        return CSFM_ERROR_OUT_OF_MEMORY;
     }
     memset(array->buffer, 0, size);
     array->capacity = capacity;
     array->length = 0;
-    return 0;
+    return CSFM_ERROR_SUCCESS;
 }
 
 void CSFM_NodeArray_deallocate(CSFM_NodeArray *array) {
@@ -613,44 +652,49 @@ void CSFM_NodeArray_reuse(CSFM_NodeArray *array) {
         return;
     }
     if (array->buffer != NULL) {
-        size_t size = sizeof(CSFM_Node) * array->capacity;
+        uint32_t size = sizeof(CSFM_Node) * array->capacity;
         memset(array->buffer, 0, size);
     }
     array->length = 0;
 }
 
-static int CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity) {
-    if (array == NULL || newCapacity < array->capacity) {
-        return -1;
+static CSFM_ErrorType CSFM_NodeArray_resize(CSFM_NodeArray *array, uint32_t newCapacity) {
+    if (array == NULL || newCapacity <= array->capacity) {
+        return CSFM_ERROR_SUCCESS;
     }
-    size_t newSize = sizeof(CSFM_Node) * newCapacity;
-    CSFM_Node *newBuffer = malloc(newSize);
-    if (newBuffer == NULL) {
-        return -1;
+    newCapacity = newCapacity <= CSFM_NODE_ARRAY_CAPACITY_MAX ? newCapacity : CSFM_NODE_ARRAY_CAPACITY_MAX;
+
+    {
+        uint32_t newSize = sizeof(CSFM_Node) * newCapacity;
+        CSFM_Node *newBuffer = realloc(array->buffer, newSize);
+        if (newBuffer == NULL) {
+            return CSFM_ERROR_OUT_OF_MEMORY;
+        }
+        array->buffer = newBuffer;
     }
-    memset(newBuffer, 0, newSize);
-    if (array->buffer != NULL) {
-        memcpy(newBuffer, array->buffer, sizeof(CSFM_Node) * array->length);
-        free(array->buffer);
+    uint32_t capacityDifference = newCapacity - array->capacity;
+    uint32_t addedSize = sizeof(CSFM_Node) * capacityDifference;
+    if (addedSize > 0) {
+        memset(&array->buffer[array->capacity], 0, addedSize);
     }
-    array->buffer = newBuffer;
     array->capacity = newCapacity;
-    return 0;
+    return CSFM_ERROR_SUCCESS;
 }
 
-static int CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node) {
+static CSFM_ErrorType CSFM_NodeArray_push(CSFM_NodeArray *array, CSFM_Node node) {
     if (array == NULL || array->buffer == NULL) {
-        return -1;
+        return CSFM_ERROR_SUCCESS;
     }
     if (array->length >= array->capacity) {
-        if (CSFM_NodeArray_resize(array, array->capacity * 2) != 0) {
-            return -1;
+        CSFM_ErrorType err = CSFM_NodeArray_resize(array, array->capacity * 2);
+        if (err != CSFM_ERROR_SUCCESS) {
+            return err;
         }
     }
 
     array->buffer[array->length] = node;
     array->length++;
-    return 0;
+    return CSFM_ERROR_SUCCESS;
 }
 
 static void CSFM_NodeArray_pop(CSFM_NodeArray *array) {
@@ -663,7 +707,7 @@ static void CSFM_NodeArray_pop(CSFM_NodeArray *array) {
 }
 
 CSFM_Node CSFM_NodeArray_get(CSFM_NodeArray array, uint32_t index) {
-    if (index < array.length) {
+    if (index < array.length && array.buffer != NULL) {
         return array.buffer[index];
     }
     CSFM_Node stub = {0};
@@ -738,15 +782,15 @@ void parseMarker(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *toke
 
 void parseText(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *token, CSFM_Node *node) {
     CSFM_Token currToken = {0};
-    int endParse = 0;
-    while (!endParse) {
+    bool endParse = false;
+    while (!endParse && *tokenIndex < input.length) {
         currToken = peekToken(input, *tokenIndex);
         switch (token->type) {
         case CSFM_TOKEN_NULL:
         case CSFM_TOKEN_CR:
         case CSFM_TOKEN_LF:
         case CSFM_TOKEN_BACKSLASH:
-            endParse = 1;
+            endParse = true;
             break;
         default:
             node->end = token->end;
@@ -756,7 +800,7 @@ void parseText(CSFM_String8Slice input, uint32_t *tokenIndex, CSFM_Token *token,
     }
 }
 
-CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size) {
+CSFM_ParseResult CSFM_Parse(uint8_t *buf, uint32_t size) {
     CSFM_ParseResult result = {
         .input = {
             .ptr = buf,
@@ -813,7 +857,11 @@ CSFM_ParseResult CSFM_Parse(uint8_t *buf, size_t size) {
         }
         prevToken = token;
         prevNode = node;
-    } while (token.type != CSFM_TOKEN_NULL);
+    } while (
+        token.type != CSFM_TOKEN_NULL &&
+        tokenIndex < result.input.length &&
+        result.tree.length < CSFM_NODE_ARRAY_CAPACITY_MAX
+    );
 
 
     return result;
