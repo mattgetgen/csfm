@@ -245,6 +245,8 @@ typedef enum {
 } USFM_CharacterClass;
 
 // CSFM_CODEGEN character_class start
+// NOTE: This code is generated via codegen. Please do not modify manually!
+// Last generated on: 2026-09-08
 static const uint8_t character_class[256] = {
     [9] = CLASS_WHITESPACE,
     [10] = CLASS_LINE_FEED,
@@ -345,7 +347,7 @@ typedef struct {
     uint8_t length;
 } USFM_Marker;
 
-static USFM_Marker marker_map[256] = {0};
+static USFM_Marker marker_map[251] = {0};
 
 const char *markers[] = {
     "id",
@@ -359,12 +361,15 @@ const char *markers[] = {
 
 static uint32_t USFM_Marker_Hash(const char *marker_text, uint8_t length)
 {
-    size_t min_length = length > sizeof(uint32_t) ? sizeof(uint32_t) : length;
-    uint32_t hash = 0;
-    for (size_t i = 0; i < min_length; i++)
-    {
-        hash |= marker_text[i] << (8 * i);
-    }
+    assert(marker_text != NULL && length > 0);
+
+    uint8_t index_2 = length > 1 ? 1 : 0;
+    uint8_t index_n_1 = length > 1 ? length-1 : 0;
+    uint8_t index_n = length-1;
+    uint32_t hash = (uint32_t)marker_text[0] & 0xFF;
+    hash |= (uint32_t)marker_text[index_2] << 8;
+    hash |= (uint32_t)marker_text[index_n_1] << 16;
+    hash |= (uint32_t)marker_text[index_n] << 24;
     return hash;
 }
 
@@ -375,27 +380,15 @@ static void USFM_MarkerMap_Initialize(void)
     {
         USFM_Marker marker = {0};
         marker.length = strlen(markers[i]);
-        // if (marker.length <= sizeof(uintptr_t))
-        // {
-        //     uintptr_t str = 0;
-        //     for (size_t j = 0; j < marker.length; j++)
-        //     {
-        //         str |= markers[i][j] << (8 * j);
-        //     }
-        //     marker.str = (const char *)str;
-        // }
-        // else
-        {
-            marker.str = (const char *)markers[i];
-        }
+        marker.str = (const char *)markers[i];
         marker.hash = USFM_Marker_Hash((const char *)markers[i], marker.length);
-        uint32_t hash = marker.hash % (sizeof(marker_map) / sizeof(marker_map[0]));
-        if (marker_map[hash].length != 0)
+        uint32_t mhash = marker.hash % (sizeof(marker_map) / sizeof(marker_map[0]));
+        if (marker_map[mhash].length != 0)
         {
-            printf("%s collides with %s!\n", marker.str, marker_map[hash].str);
+            printf("%s (%d) collides with %s (%d)! (%d)\n", marker.str, marker.hash, marker_map[mhash].str, marker_map[mhash].hash, mhash);
             assert(false);
         }
-        marker_map[hash] = marker;
+        marker_map[mhash] = marker;
     }
     (void)marker_map;
 }
@@ -434,7 +427,7 @@ USFM_Document *USFM_Document_Initialize(USFM_Arena *arena, const char *input, ui
     {
         return NULL;
     }
-    // USFM_MarkerMap_Initialize();
+    USFM_MarkerMap_Initialize();
 
     USFM_Document *doc = (USFM_Document *)USFM_Arena_Push(arena, sizeof(USFM_Document));
     if (doc == NULL)

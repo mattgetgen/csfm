@@ -1,33 +1,37 @@
 #define CSFM_IMPLEMENTATION
 #define CSFM_CODEGEN 1
+#define _POSIX_C_SOURCE 1
 #include "../csfm.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
+
+#define TEMP_BUFFER_SIZE 128
 
 typedef enum {
     START,
     END,
-} CodegenCommentType;
+} CodeGen_CommentType;
 
 typedef struct {
     char *name;
     size_t length;
     size_t index_start;
     size_t index_end;
-    CodegenCommentType type;
-} CodegenComment;
+    CodeGen_CommentType type;
+} CodeGen_Comment;
 
 typedef enum {
     NOT_CODEGEN,
     INVALID_CODEGEN,
     CODEGEN,
-} CodegenParseResult;
+} CodeGen_ParseResult;
 
-CodegenParseResult parse_codegen_comment(char *input, size_t *index,
-    size_t line_count, size_t index_at_line_start, CodegenCommentType expected_type, CodegenComment *comment)
+CodeGen_ParseResult CodeGen_Comment_Parse(char *input, size_t *index,
+    size_t line_count, size_t index_at_line_start, CodeGen_CommentType expected_type, CodeGen_Comment *comment)
 {
     comment->index_start = *index;
     const char *codegen_comment_start = "// CSFM_CODEGEN ";
@@ -47,13 +51,13 @@ CodegenParseResult parse_codegen_comment(char *input, size_t *index,
     }
     if (comment->length == 0)
     {
-        printf("codegen error: Expected a codegen name after \"%s\" at %ld:%ld\n", codegen_comment_start, line_count, (*index-index_at_line_start)+1);
+        printf("CodeGen Error: Expected a codegen name after \"%s\" at %ld:%ld\n", codegen_comment_start, line_count, (*index-index_at_line_start)+1);
         return INVALID_CODEGEN;
     }
     if (input[*index] != ' ')
     {
         return INVALID_CODEGEN;
-        printf("codegen error: Expected ' ' after \"%*.*s\" at %ld:%ld\n", (int)comment->length, (int)comment->length, comment->name, line_count, (*index-index_at_line_start)+1);
+        printf("CodeGen Error: Expected ' ' after \"%*.*s\" at %ld:%ld\n", (int)comment->length, (int)comment->length, comment->name, line_count, (*index-index_at_line_start)+1);
     }
     (*index)++;
     const char *start = "start";
@@ -68,32 +72,54 @@ CodegenParseResult parse_codegen_comment(char *input, size_t *index,
     }
     else
     {
-        printf("codegen error: Expected \"%s\" or \"%s\" after \"%*.*s\" at %ld:%ld\n", start, end, (int)comment->length, (int)comment->length, comment->name, line_count, (*index-index_at_line_start)+1);
+        printf("CodeGen Error: Expected \"%s\" or \"%s\" after \"%*.*s\" at %ld:%ld\n", start, end, (int)comment->length, (int)comment->length, comment->name, line_count, (*index-index_at_line_start)+1);
         return INVALID_CODEGEN;
     }
     if (comment->type != expected_type)
     {
-        printf("codegen error: Expected type \"%s\" but received \"%s\" at %ld:%ld\n", expected_type == START ? start : end, comment->type == START ? start : end, line_count, (*index-index_at_line_start)+1);
+        printf("CodeGen Error: Expected type \"%s\" but received \"%s\" at %ld:%ld\n", expected_type == START ? start : end, comment->type == START ? start : end, line_count, (*index-index_at_line_start)+1);
         return INVALID_CODEGEN;
     }
     *index += comment->type == START ? strlen(start) : strlen(end);
     if (input[*index] != '\n')
     {
-        printf("codegen error: Expected \\n after \"%s\" at %ld:%ld\n", comment->type == START ? start : end, line_count, (*index-index_at_line_start)+1);
+        printf("CodeGen Error: Expected \\n after \"%s\" at %ld:%ld\n", comment->type == START ? start : end, line_count, (*index-index_at_line_start)+1);
         return INVALID_CODEGEN;
     }
     comment->index_end = *index + 1;
     return CODEGEN;
 }
 
-void USFM_CharacterClass_Serialize(USFM_CharacterClass *character_class, char *buffer, size_t *index,
-    size_t buffer_size)
+typedef struct {
+    char *buffer;
+    size_t length;
+    size_t capacity;
+} CodeGen_WriteBuffer;
+
+void CodeGen_WriteBuffer_Append(CodeGen_WriteBuffer *buffer, const char *text, size_t length)
 {
+    assert(buffer->length + length <= buffer->capacity);
+    memcpy(&buffer->buffer[buffer->length], text, length);
+    buffer->length += length;
+}
+
+void CodeGen_GenerationComments_Serialize(CodeGen_WriteBuffer *buffer)
+{
+    const char *start = "// NOTE: This code is generated via codegen. Please do not modify manually!\n";
+    CodeGen_WriteBuffer_Append(buffer, start, strlen(start));
+    char temp_buffer[TEMP_BUFFER_SIZE] = {0};
+    time_t raw_time = time(NULL);
+    struct tm time_info = {0};
+    localtime_r(&raw_time, &time_info);
+    size_t len = strftime(temp_buffer, TEMP_BUFFER_SIZE, "// Last generated on: %Y-%m-%d\n", &time_info);
+    CodeGen_WriteBuffer_Append(buffer, (const char *)temp_buffer, len);
+}
+
+void CodeGen_USFM_CharacterClass_Serialize(USFM_CharacterClass *character_class, CodeGen_WriteBuffer *buffer)
+{
+    CodeGen_GenerationComments_Serialize(buffer);
     const char *start = "static const uint8_t character_class[256] = {\n";
-    size_t start_len = strlen(start);
-    assert(*index + start_len <= buffer_size);
-    memcpy(&buffer[*index], start, start_len);
-    *index += start_len;
+    CodeGen_WriteBuffer_Append(buffer, start, strlen(start));
 
     for (size_t i = 0; i < 256; i++)
     {
@@ -125,18 +151,15 @@ void USFM_CharacterClass_Serialize(USFM_CharacterClass *character_class, char *b
                 class_enum_str = "CLASS_DIGIT";
                 break;
             }
-            int len = snprintf(&buffer[*index], buffer_size - *index, "    [%ld] = %s,\n", i, class_enum_str);
-            assert(len > 0);
-            assert(*index + len <= buffer_size);
-            *index += len;
+            char temp_line_buffer[TEMP_BUFFER_SIZE] = {0};
+            int len = snprintf(temp_line_buffer, TEMP_BUFFER_SIZE, "    [%ld] = %s,\n", i, class_enum_str);
+            assert(len <= TEMP_BUFFER_SIZE && len > 0);
+            CodeGen_WriteBuffer_Append(buffer, (const char *)temp_line_buffer, len);
         }
     }
 
     const char *end = "};\n";
-    size_t end_len = strlen(end);
-    assert(*index + end_len <= buffer_size);
-    memcpy(&buffer[*index], end, end_len);
-    *index += end_len;
+    CodeGen_WriteBuffer_Append(buffer, end, strlen(end));
 }
 
 int main(void)
@@ -156,16 +179,18 @@ int main(void)
     assert(readbuf != NULL);
 
     size_t write_size = size * 2;
-    size_t write_length = 0;
-    char *writebuf = malloc(write_size);
-    assert(writebuf != NULL);
-    memset(writebuf, 0, write_size);
+    CodeGen_WriteBuffer writebuf = {
+        .buffer = malloc(write_size),
+        .capacity = write_size,
+    };
+    assert(writebuf.buffer != NULL);
+    memset(writebuf.buffer, 0, writebuf.capacity);
 
     assert(read(fd, readbuf, size) != -1);
     close(fd);
-    CodegenComment comments[2] = {0};
+    CodeGen_Comment comments[2] = {0};
 
-    CodegenCommentType expected_type = START;
+    CodeGen_CommentType expected_type = START;
     size_t comment_count = 0;
     size_t index = 0;
     size_t line_count = 1;
@@ -184,7 +209,7 @@ int main(void)
         }
         else if (line_start && c == '/')
         {
-            CodegenParseResult result = parse_codegen_comment(readbuf, &index, line_count, index_at_line_start,
+            CodeGen_ParseResult result = CodeGen_Comment_Parse(readbuf, &index, line_count, index_at_line_start,
                     expected_type, &comments[comment_count]);
             switch (result)
             {
@@ -210,7 +235,7 @@ int main(void)
     // NOTE(mattg): there should be an even number of comments at all times
     if (comment_count % 2 != 0)
     {
-        printf("codegen error: Expected there to be an even number of comments (%ld)\n", comment_count);
+        printf("CodeGen Error: Expected there to be an even number of comments (%ld)\n", comment_count);
         exit(1);
     }
     // NOTE(mattg): ensure pairs are next to each other
@@ -224,7 +249,7 @@ int main(void)
             if (comments[i].length != comments[i-1].length ||
                 memcmp(comments[i].name, comments[i-1].name, comments[i].length) != 0)
             {
-                printf("codegen error: Expected \"%*.*s\" and \"%*.*s\" to equal\n",
+                printf("CodeGen Error: Expected \"%*.*s\" and \"%*.*s\" to equal\n",
                     (int)comments[i-1].length, (int)comments[i-1].length, comments[i-1].name,
                     (int)comments[i].length, (int)comments[i].length, comments[i].name);
                 exit(1);
@@ -239,9 +264,7 @@ int main(void)
         {
             copy_section_end = comments[i].index_end;
             size_t length = copy_section_end-copy_section_start;
-            assert(write_length + length <= write_size);
-            memcpy(&writebuf[write_length], &readbuf[copy_section_start], length);
-            write_length += length;
+            CodeGen_WriteBuffer_Append(&writebuf, (const char *)&readbuf[copy_section_start], length);
         }
         else if (comments[i].type == END)
         {
@@ -251,21 +274,19 @@ int main(void)
             const char *cc = "character_class";
             if (memcmp(comments[i].name, cc, strlen(cc)) == 0)
             {
-                USFM_CharacterClass_Serialize((uint8_t *)character_class, writebuf, &write_length, write_size);
+                CodeGen_USFM_CharacterClass_Serialize((uint8_t *)character_class, &writebuf);
             }
         }
     }
     size_t length = copy_section_end-copy_section_start;
-    assert(write_length + length <= write_size);
-    memcpy(&writebuf[write_length], &readbuf[copy_section_start], length);
-    write_length += length;
+    CodeGen_WriteBuffer_Append(&writebuf, (const char *)&readbuf[copy_section_start], length);
 
     fd = open(path, O_WRONLY|O_TRUNC);
     assert(fd != -1);
-    assert(write(fd, writebuf, write_length) != -1);
+    assert(write(fd, writebuf.buffer, writebuf.length) != -1);
     close(fd);
 
     free(readbuf);
-    free(writebuf);
+    free(writebuf.buffer);
     return 0;
 }
