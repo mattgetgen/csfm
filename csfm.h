@@ -106,9 +106,18 @@ typedef enum {
     USFM_TOKEN_UNKNOWN,
     USFM_TOKEN_WHITESPACE,
     USFM_TOKEN_NEWLINE,
-    USFM_TOKEN_BACKSLASH,
+    USFM_TOKEN_MARKER_START,
+    USFM_TOKEN_MARKER_TEXT,
+    USFM_TOKEN_MARKER_NUMBER,
+    USFM_TOKEN_MARKER_NESTED,
+    USFM_TOKEN_MARKER_CLOSE,
+    USFM_TOKEN_MARKER_MILESTONE_START,
+    USFM_TOKEN_MARKER_MILESTONE_END,
     USFM_TOKEN_TEXT,
     USFM_TOKEN_NUMBER,
+    USFM_TOKEN_PLUS,
+    USFM_TOKEN_MINUS,
+    USFM_TOKEN_ASTERISK,
 } USFM_TokenType;
 
 typedef struct {
@@ -240,18 +249,50 @@ typedef enum {
     CLASS_CARRIAGE_RETURN,
     CLASS_LINE_FEED,
     CLASS_BACKSLASH,
+    CLASS_PLUS,
+    CLASS_MINUS,
+    CLASS_ASTERISK,
     CLASS_LETTER,
     CLASS_DIGIT,
 } USFM_CharacterClass;
 
+#if CSFM_CODEGEN
+void USFM_CharacterClass_Generate(uint8_t *characters)
+{
+    characters[' '] = CLASS_WHITESPACE;
+    characters['\t'] = CLASS_WHITESPACE;
+    characters['\r'] = CLASS_CARRIAGE_RETURN;
+    characters['\n'] = CLASS_LINE_FEED;
+    characters['\\'] = CLASS_BACKSLASH;
+    characters['+'] = CLASS_PLUS;
+    characters['-'] = CLASS_MINUS;
+    characters['*'] = CLASS_ASTERISK;
+    for (uint8_t c = '0'; c <= '9'; c++)
+    {
+        characters[c] = CLASS_DIGIT;
+    }
+    for (uint8_t c = 'A'; c <= 'Z'; c++)
+    {
+        characters[c] = CLASS_LETTER;
+    }
+    for (uint8_t c = 'a'; c <= 'z'; c++)
+    {
+        characters[c] = CLASS_LETTER;
+    }
+}
+#endif
+
 // CSFM_CODEGEN character_class start
 // NOTE: This code is generated via codegen. Please do not modify manually!
 // Last generated on: 2026-09-08
-static const uint8_t character_class[256] = {
+static const USFM_CharacterClass USFM_CharacterClass_From_Character[256] = {
     [9] = CLASS_WHITESPACE,
     [10] = CLASS_LINE_FEED,
     [13] = CLASS_CARRIAGE_RETURN,
     [32] = CLASS_WHITESPACE,
+    [42] = CLASS_ASTERISK,
+    [43] = CLASS_PLUS,
+    [45] = CLASS_MINUS,
     [48] = CLASS_DIGIT,
     [49] = CLASS_DIGIT,
     [50] = CLASS_DIGIT,
@@ -318,28 +359,18 @@ static const uint8_t character_class[256] = {
 };
 // CSFM_CODEGEN character_class end
 
-#if CSFM_CODEGEN
-void USFM_CharacterClass_Generate(uint8_t *characters)
-{
-    characters['\\'] = (uint8_t)CLASS_BACKSLASH;
-    characters[' '] = (uint8_t)CLASS_WHITESPACE;
-    characters['\t'] = (uint8_t)CLASS_WHITESPACE;
-    characters['\r'] = (uint8_t)CLASS_CARRIAGE_RETURN;
-    characters['\n'] = (uint8_t)CLASS_LINE_FEED;
-    for (uint8_t c = '0'; c <= '9'; c++)
-    {
-        characters[c] = (uint8_t)CLASS_DIGIT;
-    }
-    for (uint8_t c = 'A'; c <= 'Z'; c++)
-    {
-        characters[c] = (uint8_t)CLASS_LETTER;
-    }
-    for (uint8_t c = 'a'; c <= 'z'; c++)
-    {
-        characters[c] = (uint8_t)CLASS_LETTER;
-    }
-}
-#endif
+static const USFM_TokenType USFM_TokenType_From_CharacterClass[10] = {
+    [CLASS_OTHER] = USFM_TOKEN_UNKNOWN,
+    [CLASS_WHITESPACE] = USFM_TOKEN_WHITESPACE,
+    [CLASS_CARRIAGE_RETURN] = USFM_TOKEN_NEWLINE,
+    [CLASS_LINE_FEED] = USFM_TOKEN_NEWLINE,
+    [CLASS_BACKSLASH] = USFM_TOKEN_MARKER_START,
+    [CLASS_PLUS] = USFM_TOKEN_PLUS,
+    [CLASS_MINUS] = USFM_TOKEN_MINUS,
+    [CLASS_ASTERISK] = USFM_TOKEN_ASTERISK,
+    [CLASS_LETTER] = USFM_TOKEN_TEXT,
+    [CLASS_DIGIT] = USFM_TOKEN_NUMBER,
+};
 
 typedef struct {
     const char *str;
@@ -391,11 +422,6 @@ static void USFM_MarkerMap_Initialize(void)
         marker_map[mhash] = marker;
     }
     (void)marker_map;
-}
-
-static inline USFM_CharacterClass classify_character(uint8_t character)
-{
-    return (USFM_CharacterClass)character_class[character];
 }
 
 static inline void USFM_TokenArray_Push(USFM_TokenArray *array, USFM_Token element)
@@ -462,59 +488,68 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
     size_t i = 0;
     while (i < doc->input.length)
     {
+        USFM_CharacterClass c = USFM_CharacterClass_From_Character[doc->input.buffer[i]];
         USFM_Token token = {
             .offset = i,
             .length = 1,
+            .type = USFM_TokenType_From_CharacterClass[c],
         };
-        USFM_CharacterClass c = classify_character(doc->input.buffer[i]);
-        switch (c)
-        {
-        case CLASS_OTHER:
-            token.type = USFM_TOKEN_UNKNOWN;
-            break;
-        case CLASS_WHITESPACE:
-            token.type = USFM_TOKEN_WHITESPACE;
-            break;
-        case CLASS_CARRIAGE_RETURN:
-        case CLASS_LINE_FEED:
-            token.type = USFM_TOKEN_NEWLINE;
-            break;
-        case CLASS_BACKSLASH:
-            token.type = USFM_TOKEN_BACKSLASH;
-            break;
-        case CLASS_LETTER:
-            token.type = USFM_TOKEN_TEXT;
-            break;
-        case CLASS_DIGIT:
-            token.type = USFM_TOKEN_NUMBER;
-            break;
-        }
-        bool push_previous = previous.type == USFM_TOKEN_BACKSLASH;
+        bool push_previous = previous.type == USFM_TOKEN_MARKER_START;
         switch (token.type)
         {
+        case USFM_TOKEN_UNKNOWN:
+            break;
+        case USFM_TOKEN_WHITESPACE:
+            break;
         case USFM_TOKEN_NEWLINE:
-            if (previous.type == USFM_TOKEN_NEWLINE &&
-                (previous_c == CLASS_CARRIAGE_RETURN && c == CLASS_LINE_FEED))
-            {
-                previous.length++;
-            }
-            else
-            {
-                push_previous = true;
-            }
             break;
-        case USFM_TOKEN_BACKSLASH:
-            push_previous = true;
+        case USFM_TOKEN_MARKER_START:
             break;
-        default:
-            if (previous.type == token.type)
-            {
-                previous.length++;
-            }
-            else
-            {
-                push_previous = true;
-            }
+        case USFM_TOKEN_MARKER_TEXT:
+            break;
+        case USFM_TOKEN_MARKER_NUMBER:
+            break;
+        case USFM_TOKEN_MARKER_NESTED:
+            break;
+        case USFM_TOKEN_MARKER_CLOSE:
+            break;
+        case USFM_TOKEN_MARKER_MILESTONE_START:
+            break;
+        case USFM_TOKEN_MARKER_MILESTONE_END:
+            break;
+        case USFM_TOKEN_TEXT:
+            break;
+        case USFM_TOKEN_NUMBER:
+            break;
+        case USFM_TOKEN_PLUS:
+            break;
+        case USFM_TOKEN_MINUS:
+            break;
+        case USFM_TOKEN_ASTERISK:
+            break;
+        // case USFM_TOKEN_NEWLINE:
+        //     if (previous.type == USFM_TOKEN_NEWLINE &&
+        //         (previous_c == CLASS_CARRIAGE_RETURN && c == CLASS_LINE_FEED))
+        //     {
+        //         previous.length++;
+        //     }
+        //     else
+        //     {
+        //         push_previous = true;
+        //     }
+        //     break;
+        // case USFM_TOKEN_MARKER_START:
+        //     push_previous = true;
+        //     break;
+        // default:
+        //     if (previous.type == token.type)
+        //     {
+        //         previous.length++;
+        //     }
+        //     else
+        //     {
+        //         push_previous = true;
+        //     }
         }
         if (push_previous)
         {

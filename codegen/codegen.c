@@ -118,12 +118,12 @@ void CodeGen_GenerationComments_Serialize(CodeGen_WriteBuffer *buffer)
 void CodeGen_USFM_CharacterClass_Serialize(USFM_CharacterClass *character_class, CodeGen_WriteBuffer *buffer)
 {
     CodeGen_GenerationComments_Serialize(buffer);
-    const char *start = "static const uint8_t character_class[256] = {\n";
+    const char *start = "static const USFM_CharacterClass USFM_CharacterClass_From_Character[256] = {\n";
     CodeGen_WriteBuffer_Append(buffer, start, strlen(start));
 
     for (size_t i = 0; i < 256; i++)
     {
-        USFM_CharacterClass class = (USFM_CharacterClass)character_class[i];
+        USFM_CharacterClass class = character_class[i];
         if (class != CLASS_OTHER)
         {
             char *class_enum_str = NULL;
@@ -143,6 +143,15 @@ void CodeGen_USFM_CharacterClass_Serialize(USFM_CharacterClass *character_class,
                 break;
             case CLASS_BACKSLASH:
                 class_enum_str = "CLASS_BACKSLASH";
+                break;
+            case CLASS_PLUS:
+                class_enum_str = "CLASS_PLUS";
+                break;
+            case CLASS_MINUS:
+                class_enum_str = "CLASS_MINUS";
+                break;
+            case CLASS_ASTERISK:
+                class_enum_str = "CLASS_ASTERISK";
                 break;
             case CLASS_LETTER:
                 class_enum_str = "CLASS_LETTER";
