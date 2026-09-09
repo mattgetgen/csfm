@@ -109,8 +109,29 @@ int main(void)
         case USFM_TOKEN_UNKNOWN:
             printf("[U<%*.*s>]", token.length, token.length, string);
             break;
+        case USFM_TOKEN_WHITESPACE:
+            printf(" ");
+            break;
         case USFM_TOKEN_NEWLINE:
             printf("[NL]\n");
+            break;
+        case USFM_TOKEN_MARKER_START:
+            printf("\\");
+            break;
+        case USFM_TOKEN_MARKER_TEXT:
+            printf("[MT<%*.*s>]", token.length, token.length, string);
+            break;
+        case USFM_TOKEN_MARKER_NUMBER:
+            printf("[M#<%*.*s>]", token.length, token.length, string);
+            break;
+        case USFM_TOKEN_MARKER_NESTED:
+            printf("+");
+            break;
+        case USFM_TOKEN_MARKER_CLOSE:
+            printf("*");
+            break;
+        case USFM_TOKEN_MARKER_SUFFIX:
+            printf("[MS<%*.*s>]", token.length, token.length, string);
             break;
         case USFM_TOKEN_TEXT:
             printf("[T<%*.*s>]", token.length, token.length, string);
@@ -122,7 +143,9 @@ int main(void)
             printf("[%*.*s]", token.length, token.length, string);
         }
     }
+    float tokens_per_byte = (float)doc->tokens.length / (float)size;
     printf("\n# tokens: %d\n", doc->tokens.length);
+    printf("tokens/byte: %.2f\n", tokens_per_byte);
     
     printTimeData(start, end, size);
 

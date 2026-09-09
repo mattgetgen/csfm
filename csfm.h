@@ -70,7 +70,7 @@
 # define CSFM_ARENA_ASAN_UNPOISON(ptr, size) \
     ASAN_UNPOISON_MEMORY_REGION((ptr), (size))
 #else
-# define CSFM_ARENA_SAN_BUFFER_SIZE 0
+# define CSFM_ARENA_ASAN_BUFFER_SIZE 0
 # define CSFM_ARENA_ASAN_POISON(ptr, size)
 # define CSFM_ARENA_ASAN_UNPOISON(ptr, size)
 #endif
@@ -111,8 +111,7 @@ typedef enum {
     USFM_TOKEN_MARKER_NUMBER,
     USFM_TOKEN_MARKER_NESTED,
     USFM_TOKEN_MARKER_CLOSE,
-    USFM_TOKEN_MARKER_MILESTONE_START,
-    USFM_TOKEN_MARKER_MILESTONE_END,
+    USFM_TOKEN_MARKER_SUFFIX,
     USFM_TOKEN_TEXT,
     USFM_TOKEN_NUMBER,
     USFM_TOKEN_PLUS,
@@ -498,82 +497,91 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
         switch (token.type)
         {
         case USFM_TOKEN_UNKNOWN:
-            // join with same
-            break;
         case USFM_TOKEN_WHITESPACE:
-            // join with same
+            if (previous.type == token.type)
+            {
+                previous.length++;
+            }
+            else
+            {
+                push_previous = true;
+            }
             break;
         case USFM_TOKEN_NEWLINE:
-            // special case
+            if (previous.type == USFM_TOKEN_NEWLINE &&
+                (previous_c == CLASS_CARRIAGE_RETURN && c == CLASS_LINE_FEED))
+            {
+                previous.length++;
+            }
+            else
+            {
+                push_previous = true;
+            }
             break;
         case USFM_TOKEN_MARKER_START:
-            // always push
+            push_previous = true;
             break;
         case USFM_TOKEN_MARKER_TEXT:
-            // would never be hit
-            break;
         case USFM_TOKEN_MARKER_NUMBER:
-            // would never be hit
-            break;
         case USFM_TOKEN_MARKER_NESTED:
-            // would never be hit
-            break;
         case USFM_TOKEN_MARKER_CLOSE:
-            // would never be hit
-            break;
-        // TODO: make it Marker euffix instead if milestone start/end
-        case USFM_TOKEN_MARKER_MILESTONE_START:
-            // would be hit actually
-            break;
-        case USFM_TOKEN_MARKER_MILESTONE_END:
-            // merge this case with other
+        case USFM_TOKEN_MARKER_SUFFIX:
+            // NOTE(mattg): these should be converted to, but never created by the table.
+            assert(false);
             break;
         case USFM_TOKEN_TEXT:
-            // check if previous is nested or start
-            // switch to marker text if so
-            // if previous is minus and marked as marker suffix append
-            // continue on if same
+            if (previous.type == USFM_TOKEN_MARKER_START || previous.type == USFM_TOKEN_MARKER_NESTED)
+            {
+                token.type = USFM_TOKEN_MARKER_TEXT;
+                push_previous = true;
+            }
+            else if (previous.type == USFM_TOKEN_TEXT || previous.type == USFM_TOKEN_MARKER_TEXT ||
+                previous.type == USFM_TOKEN_MARKER_SUFFIX)
+            {
+                previous.length++;
+            }
+            else
+            {
+                push_previous = true;
+            }
             break;
         case USFM_TOKEN_NUMBER:
-            // if after marker text make marker number
-            // otherwise join with same
+            if (previous.type == USFM_TOKEN_MARKER_TEXT)
+            {
+                token.type = USFM_TOKEN_MARKER_NUMBER;
+                push_previous = true;
+            }
+            else if (previous.type == USFM_TOKEN_NUMBER || previous.type == USFM_TOKEN_MARKER_NUMBER)
+            {
+                previous.length++;
+            }
+            else
+            {
+                push_previous = true;
+            }
             break;
         case USFM_TOKEN_PLUS:
-            // if after marker start make marker nested
-            // otherwise push
+            if (previous.type == USFM_TOKEN_MARKER_START)
+            {
+                token.type = USFM_TOKEN_MARKER_NESTED;
+            }
+            push_previous = true;
             break;
         case USFM_TOKEN_MINUS:
-            // if after marker text or marker number make marker suffix
-            // otherwise push
+            if (previous.type == USFM_TOKEN_MARKER_TEXT || previous.type == USFM_TOKEN_MARKER_NUMBER)
+            {
+                token.type = USFM_TOKEN_MARKER_SUFFIX;
+            }
+            push_previous = true;
             break;
         case USFM_TOKEN_ASTERISK:
-            // if after marker start or anything else marker related
-            // (except close) make marker close
-            // otherwise push
+            if (previous.type == USFM_TOKEN_MARKER_START || previous.type == USFM_TOKEN_MARKER_TEXT ||
+                previous.type == USFM_TOKEN_MARKER_NUMBER || previous.type == USFM_TOKEN_MARKER_SUFFIX)
+            {
+                token.type = USFM_TOKEN_MARKER_CLOSE;
+            }
+            push_previous = true;
             break;
-        // case USFM_TOKEN_NEWLINE:
-        //     if (previous.type == USFM_TOKEN_NEWLINE &&
-        //         (previous_c == CLASS_CARRIAGE_RETURN && c == CLASS_LINE_FEED))
-        //     {
-        //         previous.length++;
-        //     }
-        //     else
-        //     {
-        //         push_previous = true;
-        //     }
-        //     break;
-        // case USFM_TOKEN_MARKER_START:
-        //     push_previous = true;
-        //     break;
-        // default:
-        //     if (previous.type == token.type)
-        //     {
-        //         previous.length++;
-        //     }
-        //     else
-        //     {
-        //         push_previous = true;
-        //     }
         }
         if (push_previous)
         {
