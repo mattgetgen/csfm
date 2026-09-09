@@ -498,34 +498,58 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
         switch (token.type)
         {
         case USFM_TOKEN_UNKNOWN:
+            // join with same
             break;
         case USFM_TOKEN_WHITESPACE:
+            // join with same
             break;
         case USFM_TOKEN_NEWLINE:
+            // special case
             break;
         case USFM_TOKEN_MARKER_START:
+            // always push
             break;
         case USFM_TOKEN_MARKER_TEXT:
+            // would never be hit
             break;
         case USFM_TOKEN_MARKER_NUMBER:
+            // would never be hit
             break;
         case USFM_TOKEN_MARKER_NESTED:
+            // would never be hit
             break;
         case USFM_TOKEN_MARKER_CLOSE:
+            // would never be hit
             break;
+        // TODO: make it Marker euffix instead if milestone start/end
         case USFM_TOKEN_MARKER_MILESTONE_START:
+            // would be hit actually
             break;
         case USFM_TOKEN_MARKER_MILESTONE_END:
+            // merge this case with other
             break;
         case USFM_TOKEN_TEXT:
+            // check if previous is nested or start
+            // switch to marker text if so
+            // if previous is minus and marked as marker suffix append
+            // continue on if same
             break;
         case USFM_TOKEN_NUMBER:
+            // if after marker text make marker number
+            // otherwise join with same
             break;
         case USFM_TOKEN_PLUS:
+            // if after marker start make marker nested
+            // otherwise push
             break;
         case USFM_TOKEN_MINUS:
+            // if after marker text or marker number make marker suffix
+            // otherwise push
             break;
         case USFM_TOKEN_ASTERISK:
+            // if after marker start or anything else marker related
+            // (except close) make marker close
+            // otherwise push
             break;
         // case USFM_TOKEN_NEWLINE:
         //     if (previous.type == USFM_TOKEN_NEWLINE &&
