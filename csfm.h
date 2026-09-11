@@ -481,7 +481,7 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
     {
         return;
     }
-
+    // TODO(mattg): Convert the tokenization into a function which returns one token at a time.
     USFM_CharacterClass previous_c = CLASS_OTHER;
     USFM_Token previous = {0};
     size_t i = 0;
@@ -498,7 +498,7 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
         {
         case USFM_TOKEN_UNKNOWN:
         case USFM_TOKEN_WHITESPACE:
-            if (previous.type == token.type)
+            if (previous.type == USFM_TOKEN_WHITESPACE || previous.type == USFM_TOKEN_TEXT)
             {
                 previous.length++;
             }
