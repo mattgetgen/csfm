@@ -185,7 +185,7 @@ void CodeGen_GenerationComments_Serialize(CodeGen_WriteBuffer *buffer, uint64_t 
 {
     const char *start = "/* CSFM_CODEGEN_COMMENT --------------------------------------------------- *\n";
     const char *note  = " * NOTE: This code is generated via codegen. Please do not modify manually!\n";
-    const char *date  = " * Last generated on: %F %T %Z\n";
+    const char *date  = " * Last generated: %F %T %Z\n";
     const char *hash  = " * Hash: %x\n";
     const char *end   = " * CSFM_CODEGEN_COMMENT --------------------------------------------------- */\n";
     CodeGen_WriteBuffer_Append(buffer, start, strlen(start));
@@ -194,7 +194,7 @@ void CodeGen_GenerationComments_Serialize(CodeGen_WriteBuffer *buffer, uint64_t 
     char temp_time_buffer[TEMP_BUFFER_SIZE] = {0};
     time_t raw_time = time(NULL);
     struct tm time_info = {0};
-    localtime_r(&raw_time, &time_info);
+    gmtime_r(&raw_time, &time_info);
     size_t time_len = strftime(temp_time_buffer, TEMP_BUFFER_SIZE, date, &time_info);
     assert(time_len <= TEMP_BUFFER_SIZE);
     CodeGen_WriteBuffer_Append(buffer, (const char *)temp_time_buffer, time_len);
