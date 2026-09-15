@@ -131,6 +131,156 @@ typedef struct {
     uint32_t capacity;
 } USFM_TokenArray;
 
+typedef enum {
+// CSFM_CODEGEN_DATA marker_type start
+    USFM_MARKER_UNKNOWN,
+    USFM_MARKER_ID,
+    USFM_MARKER_USFM,
+    USFM_MARKER_IDE,
+    USFM_MARKER_STS,
+    USFM_MARKER_REM,
+    USFM_MARKER_H,
+    USFM_MARKER_TOC,
+    USFM_MARKER_TOCA,
+    USFM_MARKER_IMT,
+    USFM_MARKER_IS,
+    USFM_MARKER_IP,
+    USFM_MARKER_IPI,
+    USFM_MARKER_IM,
+    USFM_MARKER_IMI,
+    USFM_MARKER_IPQ,
+    USFM_MARKER_IMQ,
+    USFM_MARKER_IPR,
+    USFM_MARKER_IQ,
+    USFM_MARKER_IB,
+    USFM_MARKER_ILI,
+    USFM_MARKER_IOT,
+    USFM_MARKER_IO,
+    USFM_MARKER_IOR,
+    USFM_MARKER_IQT,
+    USFM_MARKER_IEX,
+    USFM_MARKER_IMTE,
+    USFM_MARKER_IE,
+    USFM_MARKER_MT,
+    USFM_MARKER_MTE,
+    USFM_MARKER_MS,
+    USFM_MARKER_MR,
+    USFM_MARKER_S,
+    USFM_MARKER_SR,
+    USFM_MARKER_R,
+    USFM_MARKER_RQ,
+    USFM_MARKER_D,
+    USFM_MARKER_SP,
+    USFM_MARKER_SD,
+    USFM_MARKER_C,
+    USFM_MARKER_CA,
+    USFM_MARKER_CL,
+    USFM_MARKER_CP,
+    USFM_MARKER_CD,
+    USFM_MARKER_V,
+    USFM_MARKER_VA,
+    USFM_MARKER_VP,
+    USFM_MARKER_P,
+    USFM_MARKER_M,
+    USFM_MARKER_PO,
+    USFM_MARKER_PR,
+    USFM_MARKER_CLS,
+    USFM_MARKER_PMO,
+    USFM_MARKER_PM,
+    USFM_MARKER_PMC,
+    USFM_MARKER_PMR,
+    USFM_MARKER_PI,
+    USFM_MARKER_MI,
+    USFM_MARKER_NB,
+    USFM_MARKER_PC,
+    USFM_MARKER_PH,
+    USFM_MARKER_B,
+    USFM_MARKER_Q,
+    USFM_MARKER_QR,
+    USFM_MARKER_QC,
+    USFM_MARKER_QS,
+    USFM_MARKER_QA,
+    USFM_MARKER_QAC,
+    USFM_MARKER_QM,
+    USFM_MARKER_QD,
+    USFM_MARKER_LH,
+    USFM_MARKER_LI,
+    USFM_MARKER_LF,
+    USFM_MARKER_LIM,
+    USFM_MARKER_LITL,
+    USFM_MARKER_LIK,
+    USFM_MARKER_LIV,
+    USFM_MARKER_TR,
+    USFM_MARKER_TH,
+    USFM_MARKER_THR,
+    USFM_MARKER_TC,
+    USFM_MARKER_TCR,
+    USFM_MARKER_F,
+    USFM_MARKER_FE,
+    USFM_MARKER_FR,
+    USFM_MARKER_FQ,
+    USFM_MARKER_FQA,
+    USFM_MARKER_FK,
+    USFM_MARKER_FL,
+    USFM_MARKER_FW,
+    USFM_MARKER_FP,
+    USFM_MARKER_FV,
+    USFM_MARKER_FT,
+    USFM_MARKER_FDC,
+    USFM_MARKER_FM,
+    USFM_MARKER_X,
+    USFM_MARKER_XO,
+    USFM_MARKER_XK,
+    USFM_MARKER_XQ,
+    USFM_MARKER_XT,
+    USFM_MARKER_XTA,
+    USFM_MARKER_XOP,
+    USFM_MARKER_XOT,
+    USFM_MARKER_XNT,
+    USFM_MARKER_XDC,
+    USFM_MARKER_ADD,
+    USFM_MARKER_BK,
+    USFM_MARKER_DC,
+    USFM_MARKER_K,
+    USFM_MARKER_LIT,
+    USFM_MARKER_ND,
+    USFM_MARKER_ORD,
+    USFM_MARKER_PN,
+    USFM_MARKER_PNG,
+    USFM_MARKER_ADDPN,
+    USFM_MARKER_QT,
+    USFM_MARKER_SIG,
+    USFM_MARKER_SLS,
+    USFM_MARKER_TL,
+    USFM_MARKER_WJ,
+    USFM_MARKER_EM,
+    USFM_MARKER_BD,
+    USFM_MARKER_IT,
+    USFM_MARKER_BDIT,
+    USFM_MARKER_NO,
+    USFM_MARKER_SC,
+    USFM_MARKER_SUP,
+    USFM_MARKER_PB,
+    USFM_MARKER_FIG,
+    USFM_MARKER_NDX,
+    USFM_MARKER_RB,
+    USFM_MARKER_PRO,
+    USFM_MARKER_W,
+    USFM_MARKER_WG,
+    USFM_MARKER_WH,
+    USFM_MARKER_WA,
+    USFM_MARKER_JMP,
+    USFM_MARKER_TS,
+    USFM_MARKER_EF,
+    USFM_MARKER_EX,
+    USFM_MARKER_ESB,
+    USFM_MARKER_ESBE,
+    USFM_MARKER_CAT,
+    USFM_MARKER_PERIPH,
+    USFM_MARKER_CLOSE,
+// CSFM_CODEGEN_DATA marker_type end
+} USFM_MarkerType;
+
 typedef struct USFM_Document USFM_Document;
 
 bool USFM_Arena_Initialize(USFM_Arena *arena, size_t capacity);
@@ -282,8 +432,11 @@ void USFM_CharacterClass_Generate(uint8_t *characters)
 #endif
 
 // CSFM_CODEGEN character_class start
-// NOTE: This code is generated via codegen. Please do not modify manually!
-// Last generated on: 2026-09-08
+/* CSFM_CODEGEN_COMMENT --------------------------------------------------- *
+ * NOTE: This code is generated via codegen. Please do not modify manually!
+ * Last generated on: 2026-09-15 16:16:35 CDT
+ * Hash: 6f585606
+ * CSFM_CODEGEN_COMMENT --------------------------------------------------- */
 static const USFM_CharacterClass USFM_CharacterClass_From_Character[256] = {
     [9] = CLASS_WHITESPACE,
     [10] = CLASS_LINE_FEED,
@@ -371,23 +524,166 @@ static const USFM_TokenType USFM_TokenType_From_CharacterClass[10] = {
     [CLASS_DIGIT] = USFM_TOKEN_NUMBER,
 };
 
+// CSFM_CODEGEN marker_text start
+/* CSFM_CODEGEN_COMMENT --------------------------------------------------- *
+ * NOTE: This code is generated via codegen. Please do not modify manually!
+ * Last generated on: 2026-09-15 16:16:35 CDT
+ * Hash: 5910522e
+ * CSFM_CODEGEN_COMMENT --------------------------------------------------- */
+static const char *USFM_MarkerText_From_MarkerType[145] = {
+    "",
+    "id",
+    "usfm",
+    "ide",
+    "sts",
+    "rem",
+    "h",
+    "toc",
+    "toca",
+    "imt",
+    "is",
+    "ip",
+    "ipi",
+    "im",
+    "imi",
+    "ipq",
+    "imq",
+    "ipr",
+    "iq",
+    "ib",
+    "ili",
+    "iot",
+    "io",
+    "ior",
+    "iqt",
+    "iex",
+    "imte",
+    "ie",
+    "mt",
+    "mte",
+    "ms",
+    "mr",
+    "s",
+    "sr",
+    "r",
+    "rq",
+    "d",
+    "sp",
+    "sd",
+    "c",
+    "ca",
+    "cl",
+    "cp",
+    "cd",
+    "v",
+    "va",
+    "vp",
+    "p",
+    "m",
+    "po",
+    "pr",
+    "cls",
+    "pmo",
+    "pm",
+    "pmc",
+    "pmr",
+    "pi",
+    "mi",
+    "nb",
+    "pc",
+    "ph",
+    "b",
+    "q",
+    "qr",
+    "qc",
+    "qs",
+    "qa",
+    "qac",
+    "qm",
+    "qd",
+    "lh",
+    "li",
+    "lf",
+    "lim",
+    "litl",
+    "lik",
+    "liv",
+    "tr",
+    "th",
+    "thr",
+    "tc",
+    "tcr",
+    "f",
+    "fe",
+    "fr",
+    "fq",
+    "fqa",
+    "fk",
+    "fl",
+    "fw",
+    "fp",
+    "fv",
+    "ft",
+    "fdc",
+    "fm",
+    "x",
+    "xo",
+    "xk",
+    "xq",
+    "xt",
+    "xta",
+    "xop",
+    "xot",
+    "xnt",
+    "xdc",
+    "add",
+    "bk",
+    "dc",
+    "k",
+    "lit",
+    "nd",
+    "ord",
+    "pn",
+    "png",
+    "addpn",
+    "qt",
+    "sig",
+    "sls",
+    "tl",
+    "wj",
+    "em",
+    "bd",
+    "it",
+    "bdit",
+    "no",
+    "sc",
+    "sup",
+    "pb",
+    "fig",
+    "ndx",
+    "rb",
+    "pro",
+    "w",
+    "wg",
+    "wh",
+    "wa",
+    "jmp",
+    "ts",
+    "ef",
+    "ex",
+    "esb",
+    "esbe",
+    "cat",
+    "periph",
+    "*",
+};
+// CSFM_CODEGEN marker_text end
+
 typedef struct {
     const char *str;
     uint32_t hash;
     uint8_t length;
 } USFM_Marker;
-
-static USFM_Marker marker_map[251] = {0};
-
-const char *markers[] = {
-    "id",
-    "usfm",
-    "ide",
-    "h",
-    "c",
-    "p",
-    "v",
-};
 
 static uint32_t USFM_Marker_Hash(const char *marker_text, uint8_t length)
 {
@@ -403,25 +699,35 @@ static uint32_t USFM_Marker_Hash(const char *marker_text, uint8_t length)
     return hash;
 }
 
-static void USFM_MarkerMap_Initialize(void)
+#if CSFM_CODEGEN
+USFM_Marker *USFM_MarkerMap_Generate(const char **markers, size_t *length)
 {
-    size_t length = sizeof(markers) / sizeof(markers[0]);
-    for (size_t i = 0; i < length; i++)
-    {
-        USFM_Marker marker = {0};
-        marker.length = strlen(markers[i]);
-        marker.str = (const char *)markers[i];
-        marker.hash = USFM_Marker_Hash((const char *)markers[i], marker.length);
-        uint32_t mhash = marker.hash % (sizeof(marker_map) / sizeof(marker_map[0]));
-        if (marker_map[mhash].length != 0)
-        {
-            printf("%s (%d) collides with %s (%d)! (%d)\n", marker.str, marker.hash, marker_map[mhash].str, marker_map[mhash].hash, mhash);
-            assert(false);
-        }
-        marker_map[mhash] = marker;
-    }
-    (void)marker_map;
+    // TODO(mattg): allocate a USFM_Marker buffer, resizing it if necessary to make a perfect hash
+    (void)markers;
+    (void)length;
+    return NULL;
 }
+#endif
+// static void USFM_MarkerMap_Initialize(void)
+// {
+//     size_t length = sizeof(USFM_MarkerText_From_MarkerType) / sizeof(USFM_MarkerText_From_MarkerType[0]);
+//     // NOTE(mattg): skip unknown marker text (index 0)
+//     for (size_t i = 1; i < length; i++)
+//     {
+//         USFM_Marker marker = {0};
+//         marker.length = strlen(USFM_MarkerText_From_MarkerType[i]);
+//         marker.str = (const char *)USFM_MarkerText_From_MarkerType[i];
+//         marker.hash = USFM_Marker_Hash((const char *)USFM_MarkerText_From_MarkerType[i], marker.length);
+//         uint32_t mhash = marker.hash % (sizeof(marker_map) / sizeof(marker_map[0]));
+//         if (marker_map[mhash].length != 0)
+//         {
+//             printf("%s (%d) collides with %s (%d)! (%d)\n", marker.str, marker.hash, marker_map[mhash].str, marker_map[mhash].hash, mhash);
+//             // assert(false);
+//         }
+//         marker_map[mhash] = marker;
+//     }
+//     (void)marker_map;
+// }
 
 static inline void USFM_TokenArray_Push(USFM_TokenArray *array, USFM_Token element)
 {
@@ -452,7 +758,6 @@ USFM_Document *USFM_Document_Initialize(USFM_Arena *arena, const char *input, ui
     {
         return NULL;
     }
-    USFM_MarkerMap_Initialize();
 
     USFM_Document *doc = (USFM_Document *)USFM_Arena_Push(arena, sizeof(USFM_Document));
     if (doc == NULL)

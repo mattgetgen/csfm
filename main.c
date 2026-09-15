@@ -41,8 +41,8 @@ int main(void)
 {
     // const char *path = "/home/mgetgen/repos/usfm/simdusfm/src/usfm/HPUX.usfm";
     // const char *path = "/home/mgetgen/repos/usfm/example_usfm/HPUX/01GENHPUX.SFM";
-    // const char *path = "/home/mgetgen/repos/usfm/example_usfm/WEB/25-JEReng-web.usfm";
-    const char *path = "./test.usfm";
+    const char *path = "/home/mgetgen/repos/usfm/WEB/25-JEReng-web.usfm";
+    // const char *path = "./test.usfm";
 
     printf("Reading file:\n");
     Timer start = {0};
@@ -100,6 +100,7 @@ int main(void)
     USFM_Tokenize(&arena, doc);
     getTime(&end);
     
+    /*
     for (size_t i = 0; i < doc->tokens.length; i++)
     {
         USFM_Token token = doc->tokens.buffer[i];
@@ -143,6 +144,7 @@ int main(void)
             printf("[%*.*s]", token.length, token.length, string);
         }
     }
+    */
     float tokens_per_byte = (float)doc->tokens.length / (float)size;
     printf("\n# tokens: %d\n", doc->tokens.length);
     printf("tokens/byte: %.2f\n", tokens_per_byte);
