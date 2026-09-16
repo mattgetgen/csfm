@@ -434,7 +434,7 @@ void USFM_CharacterClass_Generate(uint8_t *characters)
 // CSFM_CODEGEN character_class start
 /* CSFM_CODEGEN_COMMENT --------------------------------------------------- *
  * NOTE: This code is generated via codegen. Please do not modify manually!
- * Last generated on: 2026-09-15 16:16:35 CDT
+ * Last generated: 2026-09-16 00:18:17 GMT
  * Hash: 6f585606
  * CSFM_CODEGEN_COMMENT --------------------------------------------------- */
 static const USFM_CharacterClass USFM_CharacterClass_From_Character[256] = {
@@ -527,7 +527,7 @@ static const USFM_TokenType USFM_TokenType_From_CharacterClass[10] = {
 // CSFM_CODEGEN marker_text start
 /* CSFM_CODEGEN_COMMENT --------------------------------------------------- *
  * NOTE: This code is generated via codegen. Please do not modify manually!
- * Last generated on: 2026-09-15 16:16:35 CDT
+ * Last generated: 2026-09-16 00:18:17 GMT
  * Hash: 5910522e
  * CSFM_CODEGEN_COMMENT --------------------------------------------------- */
 static const char *USFM_MarkerText_From_MarkerType[145] = {
