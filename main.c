@@ -11,6 +11,8 @@
 #define CSFM_IMPLEMENTATION
 #include "csfm.h"
 
+#define BUFFER_SIZE 5 * 1034 * 1024
+
 typedef struct {
     long cycles;
     struct timespec time;
@@ -64,8 +66,11 @@ int main(void)
         return 1;
     }
 
+    uint8_t output_buffer[BUFFER_SIZE] = {0};
+
     size_t size = (size_t)statbuf.st_size;
-    void *filebuf = malloc(size);
+    uint8_t *filebuf = malloc(size);
+
     if (filebuf == NULL)
     {
         printf("Error: `malloc` failed\n");
@@ -86,18 +91,10 @@ int main(void)
         return 1;
     }
 
-    printf("\nInitializing parser:\n");
-    getTime(&start);
-    USFM_Arena arena = {0};
-    assert(USFM_Arena_Initialize(&arena, 0));
-    USFM_Document *doc = USFM_Document_Initialize(&arena, (const char *)filebuf, size);
-    assert(doc != NULL);
-    getTime(&end);
-    printTimeData(start, end, size);
-    
     printf("\nTokenizing file:\n");
     getTime(&start);
-    USFM_Tokenize(&arena, doc);
+    uint32_t output_buffer_length = 0; 
+    USFM_TokenArray tokens = USFM_Tokenize(filebuf, size, output_buffer, BUFFER_SIZE, &output_buffer_length);
     getTime(&end);
     
     /*
@@ -145,10 +142,9 @@ int main(void)
         }
     }
     */
-    float tokens_per_byte = (float)doc->tokens.length / (float)size;
-    printf("\n# tokens: %d\n", doc->tokens.length);
+    float tokens_per_byte = (float)tokens.length / (float)size;
+    printf("# tokens: %d\n", tokens.length);
     printf("tokens/byte: %.2f\n", tokens_per_byte);
-    
     printTimeData(start, end, size);
 
     // printf("\nParsing file:\n");
@@ -176,7 +172,7 @@ int main(void)
     //
     // CSFM_NodeArray_deallocate(&parseResult.tree);
     // CSFM_TokenArray_deallocate(&tokenResult.tokens);
-    USFM_Arena_Deinitialize(&arena);
+    // USFM_Arena_Deinitialize(&arena);
     free(filebuf);
 
     return 0;

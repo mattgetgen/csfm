@@ -47,60 +47,9 @@
 #define CSFM_VERSION_PATCH 0
 #define CSFM_VERSION "0.0.0-dev"
 
-#if defined(__has_feature)
-# if __has_feature(address_sanitizer)
-#  define CSFM_ASAN_ENABLED 1
-# endif
-#endif
-
-#if defined(__SANITIZE_ADDRESS__)
-# define CSFM_ASAN_ENABLED 1
-#endif
-
-#ifndef CSFM_ASAN_ENABLED
-# define CSFM_ASAN_ENABLED 0
-#endif
-
-#if CSFM_ASAN_ENABLED
-# include <sanitizer/asan_interface.h>
-
-# define CSFM_ARENA_ASAN_BUFFER_SIZE 16
-# define CSFM_ARENA_ASAN_POISON(ptr, size) \
-    ASAN_POISON_MEMORY_REGION((ptr), (size))
-# define CSFM_ARENA_ASAN_UNPOISON(ptr, size) \
-    ASAN_UNPOISON_MEMORY_REGION((ptr), (size))
-#else
-# define CSFM_ARENA_ASAN_BUFFER_SIZE 0
-# define CSFM_ARENA_ASAN_POISON(ptr, size)
-# define CSFM_ARENA_ASAN_UNPOISON(ptr, size)
-#endif
-#define CSFM_ARENA_BLOCK_SIZE_DEFAULT 4096
-
-#ifndef CSFM_CODEGEN
-# define CSFM_CODEGEN 0
-#endif
-
 #include <assert.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
-
-typedef struct USFM_ArenaBlock USFM_ArenaBlock;
-
-struct USFM_ArenaBlock {
-    USFM_ArenaBlock *previous;
-    size_t capacity;
-    size_t offset;
-    // NOTE(mattg): this must be the last element in order to point at the memory after the struct.
-    uint8_t memory[];
-};
-
-typedef struct {
-    USFM_ArenaBlock *first;
-    USFM_ArenaBlock *current;
-} USFM_Arena;
 
 typedef enum {
     USFM_TOKEN_UNKNOWN,
@@ -281,116 +230,14 @@ typedef enum {
 // CSFM_CODEGEN_DATA marker_type end
 } USFM_MarkerType;
 
-typedef struct USFM_Document USFM_Document;
-
-bool USFM_Arena_Initialize(USFM_Arena *arena, size_t capacity);
-
-void USFM_Arena_Deinitialize(USFM_Arena *arena);
-
-void USFM_Arena_Reuse(USFM_Arena *arena); // TODO
-
-void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc);
+USFM_TokenArray USFM_Tokenize(uint8_t *input_buffer, uint32_t input_length,
+    uint8_t *output_buffer, uint32_t output_size, uint32_t *output_buffer_length);
 
 #endif // CSFM_HEADER
 
 
 #ifdef CSFM_IMPLEMENTATION
 #define CSFM_IMPLEMENTATION
-
-static inline void *USFM_Arena_AlignForward(void *address)
-{
-    return (void *)(((uintptr_t)(address) + 0xf) & 0xfffffffffffffff0);
-}
-
-static inline USFM_ArenaBlock *USFM_ArenaBlock_Allocate(size_t size)
-{
-    USFM_ArenaBlock *block = malloc(size);
-    if (block == NULL)
-    {
-        return NULL;
-    }
-    block->previous = NULL;
-    block->capacity = size - sizeof(USFM_ArenaBlock);
-    block->offset = 0;
-    CSFM_ARENA_ASAN_POISON(block->memory, block->capacity);
-    return block;
-}
-
-bool USFM_Arena_Initialize(USFM_Arena *arena, size_t capacity)
-{
-    if (arena == NULL)
-    {
-        return false;
-    }
-    size_t size = CSFM_ARENA_BLOCK_SIZE_DEFAULT;
-    while (capacity + sizeof(USFM_ArenaBlock) > size)
-    {
-        size += CSFM_ARENA_BLOCK_SIZE_DEFAULT;
-    }
-    USFM_ArenaBlock *block = USFM_ArenaBlock_Allocate(size);
-    if (block == NULL)
-    {
-        return false;
-    }
-    arena->first = block;
-    arena->current = block;
-    return true;
-}
-
-void USFM_Arena_Deinitialize(USFM_Arena *arena)
-{
-    if (arena == NULL)
-    {
-        return;
-    }
-    USFM_ArenaBlock *block = arena->current;
-    while (block != NULL)
-    {
-        USFM_ArenaBlock *next = block->previous;
-        free(block);
-        block = next;
-    }
-    arena->first = NULL;
-    arena->current = NULL;
-}
-
-static inline void *USFM_Arena_Push(USFM_Arena *arena, size_t size)
-{
-    if (arena == NULL || arena->first == NULL || arena->current == NULL)
-    {
-        return NULL;
-    }
-
-    size_t offset = arena->current->offset + CSFM_ARENA_ASAN_BUFFER_SIZE;
-    void *memory = &arena->current->memory[offset];
-    void *aligned = USFM_Arena_AlignForward(memory);
-    size_t alignment_offset = (size_t)((uintptr_t)aligned - (uintptr_t)memory);
-    size_t space = arena->current->capacity - (offset + alignment_offset);
-    if (space >= size)
-    {
-        arena->current->offset += CSFM_ARENA_ASAN_BUFFER_SIZE + alignment_offset + size;
-        CSFM_ARENA_ASAN_UNPOISON(aligned, size);
-        return aligned;
-    }
-    size_t new_block_capacity = (arena->current->capacity + sizeof(USFM_ArenaBlock)) * 2;
-    while ((size + sizeof(USFM_ArenaBlock)) > new_block_capacity)
-    {
-        new_block_capacity += new_block_capacity;
-    }
-    USFM_ArenaBlock *block = USFM_ArenaBlock_Allocate(new_block_capacity);
-    if (block == NULL)
-    {
-        return NULL;
-    }
-    block->previous = arena->current;
-    block->offset += CSFM_ARENA_ASAN_BUFFER_SIZE;
-    memory = &block->memory[block->offset];
-    aligned = USFM_Arena_AlignForward(memory);
-    block->offset += (size_t)((uintptr_t)aligned - (uintptr_t)memory) + size;
-    CSFM_ARENA_ASAN_UNPOISON(aligned, size);
-    arena->current = block;
-    return aligned;
-}
 
 typedef enum {
     CLASS_OTHER,
@@ -685,19 +532,19 @@ typedef struct {
     uint8_t length;
 } USFM_Marker;
 
-static uint32_t USFM_Marker_Hash(const char *marker_text, uint8_t length)
-{
-    assert(marker_text != NULL && length > 0);
-
-    uint8_t index_2 = length > 1 ? 1 : 0;
-    uint8_t index_n_1 = length > 1 ? length-1 : 0;
-    uint8_t index_n = length-1;
-    uint32_t hash = (uint32_t)marker_text[0] & 0xFF;
-    hash |= (uint32_t)marker_text[index_2] << 8;
-    hash |= (uint32_t)marker_text[index_n_1] << 16;
-    hash |= (uint32_t)marker_text[index_n] << 24;
-    return hash;
-}
+// static uint32_t USFM_Marker_Hash(const char *marker_text, uint8_t length)
+// {
+//     assert(marker_text != NULL && length > 0);
+//
+//     uint8_t index_2 = length > 1 ? 1 : 0;
+//     uint8_t index_n_1 = length > 1 ? length-1 : 0;
+//     uint8_t index_n = length-1;
+//     uint32_t hash = (uint32_t)marker_text[0] & 0xFF;
+//     hash |= (uint32_t)marker_text[index_2] << 8;
+//     hash |= (uint32_t)marker_text[index_n_1] << 16;
+//     hash |= (uint32_t)marker_text[index_n] << 24;
+//     return hash;
+// }
 
 #if CSFM_CODEGEN
 USFM_Marker *USFM_MarkerMap_Generate(const char **markers, size_t *length)
@@ -708,91 +555,28 @@ USFM_Marker *USFM_MarkerMap_Generate(const char **markers, size_t *length)
     return NULL;
 }
 #endif
-// static void USFM_MarkerMap_Initialize(void)
-// {
-//     size_t length = sizeof(USFM_MarkerText_From_MarkerType) / sizeof(USFM_MarkerText_From_MarkerType[0]);
-//     // NOTE(mattg): skip unknown marker text (index 0)
-//     for (size_t i = 1; i < length; i++)
-//     {
-//         USFM_Marker marker = {0};
-//         marker.length = strlen(USFM_MarkerText_From_MarkerType[i]);
-//         marker.str = (const char *)USFM_MarkerText_From_MarkerType[i];
-//         marker.hash = USFM_Marker_Hash((const char *)USFM_MarkerText_From_MarkerType[i], marker.length);
-//         uint32_t mhash = marker.hash % (sizeof(marker_map) / sizeof(marker_map[0]));
-//         if (marker_map[mhash].length != 0)
-//         {
-//             printf("%s (%d) collides with %s (%d)! (%d)\n", marker.str, marker.hash, marker_map[mhash].str, marker_map[mhash].hash, mhash);
-//             // assert(false);
-//         }
-//         marker_map[mhash] = marker;
-//     }
-//     (void)marker_map;
-// }
 
-static inline void USFM_TokenArray_Push(USFM_TokenArray *array, USFM_Token element)
+USFM_TokenArray USFM_Tokenize(uint8_t *input_buffer, uint32_t input_length,
+    uint8_t *output_buffer, uint32_t output_size, uint32_t *output_buffer_length)
 {
-    assert(array != NULL);
-    if (array->capacity == 0)
+    USFM_TokenArray tokens = {
+        .buffer = (USFM_Token *)output_buffer,
+        .length = 0,
+        .capacity = output_size / sizeof(USFM_Token),
+    };
+    if (input_buffer == NULL || output_buffer == NULL)
     {
-        return;
-    }
-    assert(array->buffer != NULL);
-    assert(array->length < array->capacity);
-    array->buffer[array->length] = element;
-    array->length++;
-}
-
-typedef struct {
-    const uint8_t *buffer;
-    uint32_t length;
-} USFM_Buffer;
-
-struct USFM_Document {
-    USFM_Buffer input;
-    USFM_TokenArray tokens;
-};
-
-USFM_Document *USFM_Document_Initialize(USFM_Arena *arena, const char *input, uint32_t length)
-{
-    if (arena == NULL || input == NULL || length == 0)
-    {
-        return NULL;
+        tokens.capacity = 0;
+        return tokens;
     }
 
-    USFM_Document *doc = (USFM_Document *)USFM_Arena_Push(arena, sizeof(USFM_Document));
-    if (doc == NULL)
-    {
-        return NULL;
-    }
-    doc->input.buffer = (const uint8_t *)input;
-    doc->input.length = length;
-    doc->tokens.buffer = (USFM_Token *)USFM_Arena_Push(arena, sizeof(USFM_Token) * length);
-    doc->tokens.length = 0;
-    if (doc->tokens.buffer == NULL)
-    {
-        doc->tokens.capacity = 0;
-    }
-    else
-    {
-        doc->tokens.capacity = length;
-    }
-    return doc;
-}
-
-void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
-{
-    (void)arena;
-    if (doc == NULL || doc->input.buffer == NULL || doc->tokens.buffer == NULL)
-    {
-        return;
-    }
     // TODO(mattg): Convert the tokenization into a function which returns one token at a time.
     USFM_CharacterClass previous_c = CLASS_OTHER;
     USFM_Token previous = {0};
-    size_t i = 0;
-    while (i < doc->input.length)
+    uint32_t i = 0;
+    while (i < input_length)
     {
-        USFM_CharacterClass c = USFM_CharacterClass_From_Character[doc->input.buffer[i]];
+        USFM_CharacterClass c = USFM_CharacterClass_From_Character[input_buffer[i]];
         USFM_Token token = {
             .offset = i,
             .length = 1,
@@ -892,15 +676,29 @@ void USFM_Tokenize(USFM_Arena *arena, USFM_Document *doc)
         {
             if (i > 0)
             {
-                USFM_TokenArray_Push(&doc->tokens, previous);
+                if (tokens.length < tokens.capacity)
+                {
+                    tokens.buffer[tokens.length] = previous;
+                    tokens.length++;
+                }
             }
             previous = token;
         }
         previous_c = c;
         i++;
     }
-    USFM_TokenArray_Push(&doc->tokens, previous);
-}
+    if (tokens.length < tokens.capacity)
+    {
+        tokens.buffer[tokens.length] = previous;
+        tokens.length++;
+    }
+    tokens.capacity = tokens.length;
+    if (output_buffer_length != NULL)
+    {
+        *output_buffer_length = tokens.capacity * sizeof(USFM_Token);
+    }
 
+    return tokens;
+}
 
 #endif // CSFM_IMPLEMENTATION
